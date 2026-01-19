@@ -1,0 +1,341 @@
+{#include base} {#title}Settings{/title} {#header}
+<header class="bg-white border-b border-slate-200">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-semibold text-slate-900">Settings</h1>
+                <p class="mt-1 text-sm text-slate-500">
+                    Current server configuration (read-only)
+                </p>
+            </div>
+        </div>
+    </div>
+</header>
+{/header} {#content}
+<div class="space-y-6">
+    {! Catalog Configuration !}
+    <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200 bg-slate-50">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-8 h-8 rounded-lg bg-floe-100 flex items-center justify-center"
+                >
+                    <svg
+                        class="w-4 h-4 text-floe-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"
+                        />
+                    </svg>
+                </div>
+                <h2 class="text-lg font-medium text-slate-900">Catalog</h2>
+                {#if catalogHealthy}
+                <span
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 ml-auto"
+                >
+                    <span
+                        class="w-1.5 h-1.5 rounded-full bg-emerald-500"
+                    ></span>
+                    Connected
+                </span>
+                {#else}
+                <span
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-auto"
+                >
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                    Disconnected
+                </span>
+                {/if}
+            </div>
+        </div>
+        <div class="px-6 py-4">
+            {#if catalog.configured}
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                <div>
+                    <dt class="text-sm font-medium text-slate-500">Name</dt>
+                    <dd class="mt-1 text-sm text-slate-900 font-mono">
+                        {catalog.name}
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-slate-500">Type</dt>
+                    <dd class="mt-1">
+                        <span
+                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-floe-100 text-floe-800"
+                        >
+                            {catalog.type}
+                        </span>
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-slate-500">URI</dt>
+                    <dd class="mt-1 text-sm text-slate-900 font-mono">
+                        {catalog.uri}
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-slate-500">
+                        Warehouse
+                    </dt>
+                    <dd class="mt-1 text-sm text-slate-900 font-mono">
+                        {catalog.warehouse}
+                    </dd>
+                </div>
+                <div class="sm:col-span-2">
+                    <dt class="text-sm font-medium text-slate-500">
+                        Connected Since
+                    </dt>
+                    <dd class="mt-1 text-sm text-slate-900">
+                        {catalog.connectedSince}
+                    </dd>
+                </div>
+                {#if catalog.properties.size > 0}
+                <div class="sm:col-span-2">
+                    <dt class="text-sm font-medium text-slate-500 mb-2">
+                        Properties
+                    </dt>
+                    <dd class="bg-slate-50 rounded-lg p-3">
+                        <dl class="space-y-1">
+                            {#for entry in catalog.properties.entrySet}
+                            <div class="flex items-center gap-2 text-sm">
+                                <span class="text-slate-500 font-mono"
+                                    >{entry.key}:</span
+                                >
+                                <span class="text-slate-900 font-mono"
+                                    >{entry.value}</span
+                                >
+                            </div>
+                            {/for}
+                        </dl>
+                    </dd>
+                </div>
+                {/if}
+            </dl>
+            <div class="mt-4 pt-4 border-t border-slate-100">
+                <p class="text-xs text-slate-500 flex items-center gap-1">
+                    <svg
+                        class="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                        />
+                    </svg>
+                    Credentials are configured via environment variables and are
+                    not displayed.
+                </p>
+            </div>
+            {#else}
+            <p class="text-sm text-slate-500">No catalog configured.</p>
+            {/if}
+        </div>
+    </div>
+
+    {#if catalogHealthy} {! Engine Configuration !}
+    <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200 bg-slate-50">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center"
+                >
+                    <svg
+                        class="w-4 h-4 text-amber-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M13 10V3L4 14h7v7l9-11h-7z"
+                        />
+                    </svg>
+                </div>
+                <h2 class="text-lg font-medium text-slate-900">Engine</h2>
+            </div>
+        </div>
+        <div class="px-6 py-4">
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                <div>
+                    <dt class="text-sm font-medium text-slate-500">Type</dt>
+                    <dd class="mt-1">
+                        <span
+                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800"
+                        >
+                            {engine.type}
+                        </span>
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-slate-500">URL</dt>
+                    <dd class="mt-1 text-sm text-slate-900 font-mono">
+                        {engine.url}
+                    </dd>
+                </div>
+                {#if engine.type == "SPARK"}
+                <div>
+                    <dt class="text-sm font-medium text-slate-500">
+                        Driver Memory
+                    </dt>
+                    <dd class="mt-1 text-sm text-slate-900 font-mono">
+                        {engine.driverMemory}
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-slate-500">
+                        Executor Memory
+                    </dt>
+                    <dd class="mt-1 text-sm text-slate-900 font-mono">
+                        {engine.executorMemory}
+                    </dd>
+                </div>
+                {/if}
+            </dl>
+        </div>
+    </div>
+    {/if}
+
+    {! Store & Scheduler Configuration !}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {! Store !}
+        <div
+            class="bg-white rounded-lg border border-slate-200 overflow-hidden"
+        >
+            <div class="px-6 py-4 border-b border-slate-200 bg-slate-50">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center"
+                    >
+                        <svg
+                            class="w-4 h-4 text-emerald-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                            />
+                        </svg>
+                    </div>
+                    <h2 class="text-lg font-medium text-slate-900">Store</h2>
+                </div>
+            </div>
+            <div class="px-6 py-4">
+                <dl>
+                    <div>
+                        <dt class="text-sm font-medium text-slate-500">Type</dt>
+                        <dd class="mt-1">
+                            <span
+                                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800"
+                            >
+                                {store.type}
+                            </span>
+                        </dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+
+        {! Scheduler !}
+        <div
+            class="bg-white rounded-lg border border-slate-200 overflow-hidden"
+        >
+            <div class="px-6 py-4 border-b border-slate-200 bg-slate-50">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center"
+                    >
+                        <svg
+                            class="w-4 h-4 text-violet-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                        </svg>
+                    </div>
+                    <h2 class="text-lg font-medium text-slate-900">
+                        Scheduler
+                    </h2>
+                </div>
+            </div>
+            <div class="px-6 py-4">
+                <dl class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <dt class="text-sm font-medium text-slate-500">
+                            Enabled
+                        </dt>
+                        <dd>
+                            {#if scheduler.enabled}
+                            <span
+                                class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800"
+                            >
+                                <span
+                                    class="w-1.5 h-1.5 rounded-full bg-emerald-500"
+                                ></span>
+                                Yes
+                            </span>
+                            {#else}
+                            <span
+                                class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600"
+                            >
+                                <span
+                                    class="w-1.5 h-1.5 rounded-full bg-slate-400"
+                                ></span>
+                                No
+                            </span>
+                            {/if}
+                        </dd>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <dt class="text-sm font-medium text-slate-500">
+                            Distributed Lock
+                        </dt>
+                        <dd>
+                            {#if scheduler.distributedLock}
+                            <span
+                                class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800"
+                            >
+                                <span
+                                    class="w-1.5 h-1.5 rounded-full bg-emerald-500"
+                                ></span>
+                                Yes
+                            </span>
+                            {#else}
+                            <span
+                                class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600"
+                            >
+                                <span
+                                    class="w-1.5 h-1.5 rounded-full bg-slate-400"
+                                ></span>
+                                No
+                            </span>
+                            {/if}
+                        </dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+{/content} {/include}

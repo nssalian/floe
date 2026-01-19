@@ -1,0 +1,100 @@
+{
+  "name": "comprehensive-example",
+  "description": "Example policy demonstrating all available fields",
+  "tablePattern": "catalog.database.*",
+  "priority": 100,
+  "tags": {
+    "env": "production",
+    "team": "data-platform"
+  },
+
+  "rewriteDataFiles": {
+    "strategy": "BINPACK",
+    "sortOrder": ["date", "region"],
+    "zOrderColumns": ["user_id", "event_type"],
+    "targetFileSizeBytes": 134217728,
+    "maxFileGroupSizeBytes": 107374182400,
+    "maxConcurrentFileGroupRewrites": 5,
+    "partialProgressEnabled": true,
+    "partialProgressMaxCommits": 10,
+    "partialProgressMaxFailedCommits": 3,
+    "filter": "date >= '2024-01-01'",
+    "rewriteJobOrder": "BYTES_DESC",
+    "useStartingSequenceNumber": true,
+    "removeDanglingDeletes": false,
+    "outputSpecId": 0
+  },
+  "rewriteDataFilesSchedule": {
+    "cronExpression": "0 2 * * *",
+    "interval": 1,
+    "windowStart": "02:00",
+    "windowEnd": "06:00",
+    "allowedDays": "MONDAY,WEDNESDAY,FRIDAY",
+    "timeout": 4,
+    "priority": 10,
+    "enabled": true
+  },
+
+  "expireSnapshots": {
+    "retainLast": 5,
+    "maxSnapshotAge": "P7D",
+    "cleanExpiredMetadata": true,
+    "expireSnapshotId": 1234567890
+  },
+  "expireSnapshotsSchedule": {
+    "cronExpression": "0 3 * * *",
+    "enabled": true
+  },
+
+  "orphanCleanup": {
+    "retentionPeriodInDays": 3,
+    "location": "s3://bucket/warehouse/db/table",
+    "prefixMismatchMode": "IGNORE",
+    "equalSchemes": {
+      "s3a": "s3",
+      "s3n": "s3"
+    },
+    "equalAuthorities": {
+      "bucket.s3.amazonaws.com": "bucket"
+    }
+  },
+  "orphanCleanupSchedule": {
+    "cronExpression": "0 4 * * *",
+    "enabled": true
+  },
+
+  "rewriteManifests": {
+    "specId": 0,
+    "stagingLocation": "s3://bucket/staging",
+    "sortBy": ["date", "region"],
+    "rewriteIf": {
+      "path": "/path/to/manifest.avro",
+      "length": 1048576,
+      "specId": 0,
+      "content": "DATA",
+      "sequenceNumber": 100,
+      "minSequenceNumber": 50,
+      "snapshotId": 9876543210,
+      "addedFilesCount": 10,
+      "existingFilesCount": 100,
+      "deletedFilesCount": 5,
+      "addedRowsCount": 1000000,
+      "existingRowsCount": 50000000,
+      "deletedRowsCount": 50000,
+      "firstRowId": 0,
+      "keyMetadata": "0a1b2c3d4e5f",
+      "partitionSummaries": [
+        {
+          "containsNull": false,
+          "containsNan": false,
+          "lowerBound": "00000000",
+          "upperBound": "ffffffff"
+        }
+      ]
+    }
+  },
+  "rewriteManifestsSchedule": {
+    "cronExpression": "0 5 * * *",
+    "enabled": true
+  }
+}

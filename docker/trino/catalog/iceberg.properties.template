@@ -1,0 +1,26 @@
+connector.name=iceberg
+
+# Catalog type - set via CATALOG_TYPE env var
+# Valid values: rest, nessie, hive_metastor
+iceberg.catalog.type=${CATALOG_TYPE}
+
+# REST catalog settings (used when CATALOG_TYPE=rest)
+iceberg.rest-catalog.uri=${CATALOG_URI}
+iceberg.rest-catalog.warehouse=${CATALOG_WAREHOUSE}
+
+# Nessie settings (used when CATALOG_TYPE=nessie)
+iceberg.nessie-catalog.uri=${NESSIE_URI}
+iceberg.nessie-catalog.ref=${NESSIE_REF}
+iceberg.nessie-catalog.default-warehouse-dir=${CATALOG_WAREHOUSE}
+
+# Hive Metastore settings (used when CATALOG_TYPE=hive_metastore)
+hive.metastore.uri=${HMS_URI}
+
+# S3/MinIO storage settings
+fs.native-s3.enabled=true
+s3.endpoint=${S3_ENDPOINT}
+s3.path-style-access=${S3_PATH_STYLE}
+s3.region=${S3_REGION}
+s3.aws-access-key=${AWS_ACCESS_KEY_ID}
+s3.aws-secret-key=${AWS_SECRET_ACCESS_KEY}
+iceberg.remove-orphan-files.min-retention=1d

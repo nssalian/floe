@@ -1,0 +1,367 @@
+{#include base} {#title}{policy.name}{/title} {#header}
+<header class="bg-white border-b border-slate-200">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+        <div class="flex items-center gap-4">
+            <a
+                href="/ui/policies"
+                class="p-2 -ml-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            >
+                <svg
+                    class="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M15 19l-7-7 7-7"
+                    />
+                </svg>
+            </a>
+            <div class="flex-1">
+                <div class="flex items-center gap-3">
+                    <h1 class="text-2xl font-semibold text-slate-900">
+                        {policy.name}
+                    </h1>
+                    {#if policy.enabled}
+                    <span
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800"
+                    >
+                        <span
+                            class="w-1.5 h-1.5 rounded-full bg-emerald-500"
+                        ></span>
+                        Enabled
+                    </span>
+                    {#else}
+                    <span
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600"
+                    >
+                        <span
+                            class="w-1.5 h-1.5 rounded-full bg-slate-400"
+                        ></span>
+                        Disabled
+                    </span>
+                    {/if}
+                </div>
+                {#if policy.description}
+                <p class="mt-1 text-sm text-slate-500">{policy.description}</p>
+                {/if}
+            </div>
+        </div>
+    </div>
+</header>
+{/header} {#content}
+<div class="space-y-6">
+    {! Overview cards !}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {! Table Pattern !}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 class="text-sm font-medium text-slate-500 mb-3">
+                Table Pattern
+            </h3>
+            <code
+                class="text-sm bg-slate-100 px-3 py-2 rounded-lg font-mono block"
+                >{policy.tablePatternDisplay}</code
+            >
+            <p class="text-xs text-slate-500 mt-2">
+                Priority: {policy.priority}
+            </p>
+        </div>
+
+        {! Created/Updated !}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 class="text-sm font-medium text-slate-500 mb-3">Timestamps</h3>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Created</span>
+                    <span class="font-medium text-slate-900"
+                        >{policy.createdAtFormatted}</span
+                    >
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Updated</span>
+                    <span class="font-medium text-slate-900"
+                        >{policy.updatedAtFormatted}</span
+                    >
+                </div>
+            </div>
+        </div>
+
+        {! Quick Stats !}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 class="text-sm font-medium text-slate-500 mb-3">
+                Operations Configured
+            </h3>
+            <p class="text-3xl font-semibold text-slate-900">
+                {policy.operationCount}
+            </p>
+            <p class="text-xs text-slate-500 mt-1">of 4 possible operations</p>
+        </div>
+    </div>
+
+    {! Operations Configuration !}
+    <div
+        class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"
+    >
+        <div class="px-6 py-4 border-b border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-900">Operations</h3>
+        </div>
+
+        <div class="divide-y divide-slate-200">
+            {! Rewrite Data Files !}
+            <div class="px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        {#if policy.hasRewriteDataFiles}
+                        <div
+                            class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center"
+                        >
+                            <svg
+                                class="w-4 h-4 text-blue-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M5 13l4 4L19 7"
+                                />
+                            </svg>
+                        </div>
+                        {#else}
+                        <div
+                            class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center"
+                        >
+                            <svg
+                                class="w-4 h-4 text-slate-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M20 12H4"
+                                />
+                            </svg>
+                        </div>
+                        {/if}
+                        <div>
+                            <p class="text-sm font-medium text-slate-900">
+                                Rewrite Data Files (Compaction)
+                            </p>
+                            <p class="text-xs text-slate-500">
+                                Combine small files into larger ones
+                            </p>
+                        </div>
+                    </div>
+                    <span
+                        class="text-xs font-medium {#if policy.hasRewriteDataFiles}text-blue-600{#else}text-slate-400{/if}"
+                    >
+                        {#if policy.hasRewriteDataFiles}Configured{#else}Not
+                        configured{/if}
+                    </span>
+                </div>
+            </div>
+
+            {! Expire Snapshots !}
+            <div class="px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        {#if policy.hasExpireSnapshots}
+                        <div
+                            class="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center"
+                        >
+                            <svg
+                                class="w-4 h-4 text-purple-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M5 13l4 4L19 7"
+                                />
+                            </svg>
+                        </div>
+                        {#else}
+                        <div
+                            class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center"
+                        >
+                            <svg
+                                class="w-4 h-4 text-slate-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M20 12H4"
+                                />
+                            </svg>
+                        </div>
+                        {/if}
+                        <div>
+                            <p class="text-sm font-medium text-slate-900">
+                                Expire Snapshots
+                            </p>
+                            <p class="text-xs text-slate-500">
+                                Remove old snapshots to free up storage
+                            </p>
+                        </div>
+                    </div>
+                    <span
+                        class="text-xs font-medium {#if policy.hasExpireSnapshots}text-purple-600{#else}text-slate-400{/if}"
+                    >
+                        {#if policy.hasExpireSnapshots}Configured{#else}Not
+                        configured{/if}
+                    </span>
+                </div>
+            </div>
+
+            {! Orphan Cleanup !}
+            <div class="px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        {#if policy.hasOrphanCleanup}
+                        <div
+                            class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center"
+                        >
+                            <svg
+                                class="w-4 h-4 text-amber-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M5 13l4 4L19 7"
+                                />
+                            </svg>
+                        </div>
+                        {#else}
+                        <div
+                            class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center"
+                        >
+                            <svg
+                                class="w-4 h-4 text-slate-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M20 12H4"
+                                />
+                            </svg>
+                        </div>
+                        {/if}
+                        <div>
+                            <p class="text-sm font-medium text-slate-900">
+                                Orphan File Cleanup
+                            </p>
+                            <p class="text-xs text-slate-500">
+                                Remove files not referenced by any snapshot
+                            </p>
+                        </div>
+                    </div>
+                    <span
+                        class="text-xs font-medium {#if policy.hasOrphanCleanup}text-amber-600{#else}text-slate-400{/if}"
+                    >
+                        {#if policy.hasOrphanCleanup}Configured{#else}Not
+                        configured{/if}
+                    </span>
+                </div>
+            </div>
+
+            {! Rewrite Manifests !}
+            <div class="px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        {#if policy.hasRewriteManifests}
+                        <div
+                            class="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center"
+                        >
+                            <svg
+                                class="w-4 h-4 text-teal-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M5 13l4 4L19 7"
+                                />
+                            </svg>
+                        </div>
+                        {#else}
+                        <div
+                            class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center"
+                        >
+                            <svg
+                                class="w-4 h-4 text-slate-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M20 12H4"
+                                />
+                            </svg>
+                        </div>
+                        {/if}
+                        <div>
+                            <p class="text-sm font-medium text-slate-900">
+                                Rewrite Manifests
+                            </p>
+                            <p class="text-xs text-slate-500">
+                                Optimize manifest files for better query
+                                performance
+                            </p>
+                        </div>
+                    </div>
+                    <span
+                        class="text-xs font-medium {#if policy.hasRewriteManifests}text-teal-600{#else}text-slate-400{/if}"
+                    >
+                        {#if policy.hasRewriteManifests}Configured{#else}Not
+                        configured{/if}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {! Tags !} {#if policy.hasTags}
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h3 class="text-sm font-medium text-slate-500 mb-3">Tags</h3>
+        <div class="flex flex-wrap gap-2">
+            {#for tag in policy.tags}
+            <span
+                class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700"
+            >
+                {tag.key}: {tag.value}
+            </span>
+            {/for}
+        </div>
+    </div>
+    {/if}
+</div>
+{/content} {/include}

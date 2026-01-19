@@ -1,0 +1,11 @@
+{
+  "name": "minimal-compaction",
+  "description": "Basic compaction policy",
+  "enabled": true,
+  "tablePattern": "demo.test.*",
+  "priority": 100,
+  "rewriteDataFiles": {
+    "strategy": "BINPACK",
+    "targetFileSizeBytes": 134217728
+  }
+}

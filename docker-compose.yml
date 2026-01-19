@@ -1,0 +1,21 @@
+# Floe Server with in-memory store only
+#
+# Usage:
+#   docker-compose -f docker-compose.yml up
+#
+# Access:
+#   - Floe UI: http://localhost:9091
+#   - Health: http://localhost:9091/health
+#   - OpenAPI: http://localhost:9091/api
+
+services:
+  floe:
+    image: ${FLOE_IMAGE}
+    container_name: floe
+    ports:
+      - "9091:9091"
+    environment:
+      QUARKUS_HTTP_PORT: 9091
+      FLOE_STORE_TYPE: MEMORY
+      FLOE_SCHEDULER_ENABLED: "false"
+      FLOE_AUTH_ENABLED: "false"

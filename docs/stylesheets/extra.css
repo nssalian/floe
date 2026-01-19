@@ -1,0 +1,19 @@
+/* Floe custom theme */
+
+:root,
+[data-md-color-scheme="default"] {
+  /* Primary - dark ocean blue */
+  --md-primary-fg-color: #082f49;
+  --md-primary-fg-color--light: #0c4a6e;
+  --md-primary-fg-color--dark: #051e2f;
+
+  /* Accent - glacier cyan */
+  --md-accent-fg-color: #0ea5e9;
+  --md-accent-fg-color--transparent: rgba(14, 165, 233, 0.1);
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #0c4a6e;
+  --md-primary-fg-color--light: #0ea5e9;
+  --md-accent-fg-color: #38bdf8;
+}

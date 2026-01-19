@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Suppress all logs during unit tests -->
+    <logger name="com.floe" level="OFF"/>
+    <logger name="io.quarkus" level="OFF"/>
+    <logger name="io.agroal" level="OFF"/>
+    <logger name="io.smallrye" level="OFF"/>
+    <logger name="org.jboss" level="OFF"/>
+    <logger name="org.apache.iceberg" level="OFF"/>
+    <logger name="org.flywaydb" level="OFF"/>
+    <logger name="org.hibernate" level="OFF"/>
+    <logger name="com.fasterxml.jackson" level="OFF"/>
+
+    <root level="OFF">
+        <appender-ref ref="STDOUT"/>
+    </root>
+
+</configuration>

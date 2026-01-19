@@ -1,0 +1,181 @@
+[versions]
+# Core frameworks
+iceberg = "1.10.0"
+spark = "3.5.7"
+quarkus = "3.4.0"
+hadoop = "3.3.6"
+
+# Hive
+hive-metastore = "3.1.3"
+
+# AWS SDK
+aws-sdk = "2.31.35"
+
+# Jackson
+jackson = "2.17.3"
+
+# HTTP
+httpclient5 = "5.3.1"
+
+# Logging
+slf4j = "2.0.12"
+logback = "1.5.3"
+
+# Database
+postgresql-driver = "42.7.2"
+hikaricp = "7.0.2"
+flyway = "9.22.3"
+
+# Trino
+trino-jdbc = "479"
+
+# Quarkus extensions (use quarkus version)
+resteasy-core = "7.0.1.Final"
+smallrye-jwt = "4.3.0"
+
+# Rate limiting & caching
+bucket4j = "8.7.0"
+caffeine = "3.1.8"
+quartz = "2.3.2"
+
+# Webjars
+htmx = "1.9.10"
+webjars-locator = "0.55"
+
+# Netty (macOS DNS resolver)
+netty = "4.1.100.Final"
+
+# Testing
+junit = "5.10.2"
+assertj = "3.25.3"
+mockito = "5.11.0"
+testcontainers = "1.20.4"
+rest-assured = "5.4.0"
+awaitility = "4.3.0"
+
+# Build plugins
+spotless-plugin = "6.25.0"
+shadow-plugin = "8.1.1"
+
+# Formatting
+google-java-format = "1.22.0"
+
+# Static analysis
+errorprone = "2.24.1"
+nullaway = "0.10.18"
+jacoco = "0.8.11"
+
+[libraries]
+# Iceberg
+iceberg-core = { module = "org.apache.iceberg:iceberg-core", version.ref = "iceberg" }
+iceberg-api = { module = "org.apache.iceberg:iceberg-api", version.ref = "iceberg" }
+iceberg-bundled-guava = { module = "org.apache.iceberg:iceberg-bundled-guava", version.ref = "iceberg" }
+iceberg-aws = { module = "org.apache.iceberg:iceberg-aws", version.ref = "iceberg" }
+iceberg-hive-metastore = { module = "org.apache.iceberg:iceberg-hive-metastore", version.ref = "iceberg" }
+iceberg-spark-runtime = { module = "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12", version.ref = "iceberg" }
+iceberg-nessie = { module = "org.apache.iceberg:iceberg-nessie", version.ref = "iceberg" }
+
+# Spark
+spark-sql = { module = "org.apache.spark:spark-sql_2.12", version.ref = "spark" }
+spark-launcher = { module = "org.apache.spark:spark-launcher_2.12", version.ref = "spark" }
+
+# Hadoop
+hadoop-common = { module = "org.apache.hadoop:hadoop-common", version.ref = "hadoop" }
+hadoop-mapreduce-client-core = { module = "org.apache.hadoop:hadoop-mapreduce-client-core", version.ref = "hadoop" }
+
+# Hive
+hive-metastore = { module = "org.apache.hive:hive-metastore", version.ref = "hive-metastore" }
+
+# AWS SDK
+aws-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws-sdk" }
+aws-sts = { module = "software.amazon.awssdk:sts", version.ref = "aws-sdk" }
+aws-kms = { module = "software.amazon.awssdk:kms", version.ref = "aws-sdk" }
+aws-url-connection-client = { module = "software.amazon.awssdk:url-connection-client", version.ref = "aws-sdk" }
+aws-apache-client = { module = "software.amazon.awssdk:apache-client", version.ref = "aws-sdk" }
+
+# Jackson
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+jackson-dataformat-yaml = { module = "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml", version.ref = "jackson" }
+jackson-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", version.ref = "jackson" }
+jackson-datatype-jdk8 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jdk8", version.ref = "jackson" }
+
+# HTTP
+httpclient5 = { module = "org.apache.httpcomponents.client5:httpclient5", version.ref = "httpclient5" }
+
+# Logging
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+
+# Database
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql-driver" }
+hikaricp = { module = "com.zaxxer:HikariCP", version.ref = "hikaricp" }
+
+# Trino
+trino-jdbc = { module = "io.trino:trino-jdbc", version.ref = "trino-jdbc" }
+
+# Quarkus (note: version managed separately due to platform BOM)
+quarkus-resteasy-reactive = { module = "io.quarkus:quarkus-resteasy-reactive", version.ref = "quarkus" }
+quarkus-resteasy-reactive-jackson = { module = "io.quarkus:quarkus-resteasy-reactive-jackson", version.ref = "quarkus" }
+quarkus-resteasy-reactive-qute = { module = "io.quarkus:quarkus-resteasy-reactive-qute", version.ref = "quarkus" }
+quarkus-arc = { module = "io.quarkus:quarkus-arc", version.ref = "quarkus" }
+quarkus-scheduler = { module = "io.quarkus:quarkus-scheduler", version.ref = "quarkus" }
+quarkus-smallrye-openapi = { module = "io.quarkus:quarkus-smallrye-openapi", version.ref = "quarkus" }
+quarkus-micrometer-registry-prometheus = { module = "io.quarkus:quarkus-micrometer-registry-prometheus", version.ref = "quarkus" }
+quarkus-smallrye-health = { module = "io.quarkus:quarkus-smallrye-health", version.ref = "quarkus" }
+quarkus-hibernate-validator = { module = "io.quarkus:quarkus-hibernate-validator", version.ref = "quarkus" }
+quarkus-security = { module = "io.quarkus:quarkus-security", version.ref = "quarkus" }
+quarkus-oidc = { module = "io.quarkus:quarkus-oidc", version.ref = "quarkus" }
+quarkus-oidc-token-propagation = { module = "io.quarkus:quarkus-oidc-token-propagation", version.ref = "quarkus" }
+quarkus-agroal = { module = "io.quarkus:quarkus-agroal", version.ref = "quarkus" }
+quarkus-jdbc-postgresql = { module = "io.quarkus:quarkus-jdbc-postgresql", version.ref = "quarkus" }
+quarkus-flyway = { module = "io.quarkus:quarkus-flyway", version.ref = "quarkus" }
+quarkus-config-yaml = { module = "io.quarkus:quarkus-config-yaml", version.ref = "quarkus" }
+quarkus-junit5 = { module = "io.quarkus:quarkus-junit5", version.ref = "quarkus" }
+
+# RESTEasy (jandex fix - must be before quarkus deps)
+resteasy-core = { module = "org.jboss.resteasy:resteasy-core", version.ref = "resteasy-core" }
+
+# Security
+smallrye-jwt = { module = "io.smallrye:smallrye-jwt", version.ref = "smallrye-jwt" }
+
+# Rate limiting & caching
+bucket4j-core = { module = "com.bucket4j:bucket4j-core", version.ref = "bucket4j" }
+caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
+quartz = { module = "org.quartz-scheduler:quartz", version.ref = "quartz" }
+
+# Netty DNS resolver for macOS
+netty-resolver-dns-macos = { module = "io.netty:netty-resolver-dns-native-macos", version.ref = "netty" }
+
+# Webjars
+htmx = { module = "org.webjars.npm:htmx.org", version.ref = "htmx" }
+webjars-locator-core = { module = "org.webjars:webjars-locator-core", version.ref = "webjars-locator" }
+
+# ErrorProne
+errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorprone" }
+nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }
+
+# Testing
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
+mockito-junit-jupiter = { module = "org.mockito:mockito-junit-jupiter", version.ref = "mockito" }
+testcontainers = { module = "org.testcontainers:testcontainers", version.ref = "testcontainers" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
+testcontainers-localstack = { module = "org.testcontainers:localstack", version.ref = "testcontainers" }
+rest-assured = { module = "io.rest-assured:rest-assured", version.ref = "rest-assured" }
+awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
+
+[bundles]
+jackson = ["jackson-databind", "jackson-dataformat-yaml", "jackson-datatype-jsr310", "jackson-datatype-jdk8"]
+aws-sdk = ["aws-s3", "aws-sts"]
+testing = ["junit-jupiter", "assertj-core", "mockito-core", "mockito-junit-jupiter"]
+testcontainers = ["testcontainers", "testcontainers-junit-jupiter", "testcontainers-postgresql"]
+
+[plugins]
+quarkus = { id = "io.quarkus", version.ref = "quarkus" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless-plugin" }
+shadow = { id = "com.github.johnrengelman.shadow", version.ref = "shadow-plugin" }
+errorprone = { id = "net.ltgt.errorprone", version = "4.3.0" }

@@ -1,0 +1,66 @@
+# Floe Configuration
+# Mount this file to /config/floe-config.yaml in the container.
+
+catalog:
+  type: REST
+  name: demo
+  warehouse: s3://warehouse/
+  uri: http://rest:8181
+
+  # Hive Metastore (type: HIVE)
+  # hive:
+  #   uri: thrift://hive-metastore:9083
+
+  # Project Nessie (type: NESSIE)
+  # nessie:
+  #   uri: http://nessie:19120/api/v1
+  #   ref: main
+
+  # Apache Polaris (type: POLARIS)
+  # polaris:
+  #   uri: http://polaris:8181/api/catalog
+  #   clientId: root
+  #   clientSecret: secret
+
+  s3:
+    endpoint: http://minio:9000
+    region: us-east-1
+
+engine:
+  type: SPARK
+
+  livy:
+    url: http://livy:8998
+    driverMemory: 2g
+    executorMemory: 2g
+    job:
+      jar: "local:///opt/floe/floe-maintenance-job.jar"
+      mainClass: com.floe.spark.job.MaintenanceJob
+
+  # trino:
+  #   jdbcUrl: jdbc:trino://trino:8080
+  #   user: floe
+  #   catalog: demo
+  #   schema: test
+
+store:
+  type: POSTGRES
+  postgres:
+    jdbcUrl: jdbc:postgresql://postgres:5432/floe
+    username: floe
+
+scheduler:
+  enabled: true
+  distributedLock: false
+
+events:
+  enabled: true
+  type: logging
+
+server:
+  port: 9091
+
+logging:
+  level: INFO
+  categories:
+    com.floe: DEBUG

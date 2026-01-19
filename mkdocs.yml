@@ -1,0 +1,67 @@
+site_name: Floe
+site_url: https://nssalian.github.io/floe
+site_description: Policy-based maintenance orchestration for Apache Iceberg tables
+repo_url: https://github.com/nssalian/floe
+repo_name: floe
+
+extra_css:
+  - stylesheets/extra.css
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+    - scheme: slate
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+    - content.tabs.link
+
+markdown_extensions:
+  - attr_list
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/nssalian/floe
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Configuration: getting-started/configuration.md
+      - Policies: policies.md
+  - Architecture:
+      - Overview: architecture/overview.md
+      - Scheduler: architecture/scheduler.md
+  - Catalogs:
+      - Overview: catalogs/index.md
+      - REST Catalog: catalogs/rest.md
+      - Hive Metastore: catalogs/hms.md
+      - Apache Polaris: catalogs/polaris.md
+      - Project Nessie: catalogs/nessie.md
+  - Engines:
+      - Overview: engines/index.md
+      - Apache Spark: engines/spark.md
+      - Trino: engines/trino.md
+  - Operations:
+      - Dashboard: operations/dashboard.md
+      - Monitoring: operations/monitoring.md
+  - Development:
+      - Testing: development/testing.md

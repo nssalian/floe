@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+
+# Build outputs - exclude most but keep what Docker images need
+**/build/classes/
+**/build/generated/
+**/build/tmp/
+**/build/reports/
+**/build/test-results/
+**/build/libs/
+**/out/
+**/target/
+
+# Keep the quarkus-app directory (needed for floe-server image)
+!floe-server/build/quarkus-app/
+
+# Keep the Livy job JAR (needed for floe-livy image)
+!floe-spark-job/build/libs/
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# Gradle
+.gradle/
+!gradle/wrapper/
+
+# Documentation
+*.md
+docs/
+
+# Test data and scripts
+*.py
+files*/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Other modules' source (not needed for Docker images)
+floe-core/src/
+floe-engine-spark/src/
+floe-engine-trino/src/
+floe-spark-job/src/

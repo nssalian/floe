@@ -1,0 +1,93 @@
+{#if operations.isEmpty}
+<div class="p-8 text-center text-slate-500">
+    <svg
+        class="w-12 h-12 mx-auto text-slate-300 mb-3"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+    >
+        <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+        />
+    </svg>
+    <p class="font-medium">No operations yet</p>
+    <p class="text-sm mt-1">
+        Operations will appear here once policies start running
+    </p>
+</div>
+{#else}
+<table class="min-w-full divide-y divide-slate-200">
+    <thead class="bg-slate-50">
+        <tr>
+            <th
+                class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+            >
+                Table
+            </th>
+            <th
+                class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+            >
+                Policy
+            </th>
+            <th
+                class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+            >
+                Status
+            </th>
+            <th
+                class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+            >
+                Started
+            </th>
+            <th
+                class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+            >
+                Duration
+            </th>
+        </tr>
+    </thead>
+    <tbody class="bg-white divide-y divide-slate-200">
+        {#for op : operations}
+        <tr class="hover:bg-slate-50">
+            <td class="px-6 py-4 whitespace-nowrap">
+                <a
+                    href="/ui/tables/{op.namespace}/{op.tableName}"
+                    class="text-sm font-medium text-floe-600 hover:text-floe-700"
+                    >{op.qualifiedTableName}</a
+                >
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                {op.policyName}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                {#switch op.status}{#case 'SUCCESS'}<span
+                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800"
+                    >Success</span
+                >{#case 'FAILED'}<span
+                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800"
+                    >Failed</span
+                >{#case 'RUNNING'}<span
+                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800"
+                    >Running</span
+                >{#case 'PARTIAL_FAILURE'}<span
+                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800"
+                    >Partial</span
+                >{#else}<span
+                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800"
+                    >{op.status}</span
+                >{/switch}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                {op.startedAt}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                {op.durationFormatted}
+            </td>
+        </tr>
+        {/for}
+    </tbody>
+</table>
+{/if}

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- Console appender -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <!-- Short, readable test logs -->
+            <pattern>
+                %d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n
+            </pattern>
+        </encoder>
+    </appender>
+
+    <!-- Your code: verbose during tests -->
+    <logger name="com.floe" level="DEBUG"/>
+
+    <!-- Jackson / JSON parsing noise -->
+    <logger name="com.fasterxml.jackson" level="WARN"/>
+    <logger name="org.codehaus.jackson" level="WARN"/>
+
+    <!-- Spark is extremely noisy in tests -->
+    <logger name="org.apache.spark" level="WARN"/>
+    <logger name="org.sparkproject" level="WARN"/>
+
+    <!-- Quieter test framework logs -->
+    <logger name="org.junit" level="WARN"/>
+    <logger name="org.mockito" level="WARN"/>
+
+    <!-- Root logger -->
+    <root level="WARN">
+        <appender-ref ref="STDOUT"/>
+    </root>
+
+</configuration>

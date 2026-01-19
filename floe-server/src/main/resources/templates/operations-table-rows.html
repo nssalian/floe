@@ -1,0 +1,68 @@
+{#if operations.empty}
+<tr>
+    <td colspan="6" class="px-6 py-12 text-center">
+        <svg class="w-12 h-12 mx-auto text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        </svg>
+        <p class="text-sm font-medium text-slate-900">No operations found</p>
+        <p class="text-sm text-slate-500 mt-1">{#if statusFilter}No operations with status "{statusFilter}".{#else}Operations will appear here once policies start running.{/if}</p>
+    </td>
+</tr>
+{#else}
+{#for op in operations}
+<tr class="hover:bg-slate-50 transition-colors">
+    <td class="px-6 py-4 whitespace-nowrap">
+        {#switch op.status}
+        {#case 'RUNNING'}
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>Running
+        </span>
+        {#case 'SUCCESS'}
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Success
+        </span>
+        {#case 'FAILED'}
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>Failed
+        </span>
+        {#case 'PARTIAL_FAILURE'}
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>Partial
+        </span>
+        {#case 'PENDING'}
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Pending
+        </span>
+        {#else}
+        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{op.status}</span>
+        {/switch}
+    </td>
+    <td class="px-6 py-4">
+        <div class="text-sm font-medium text-slate-900">{op.tableName}</div>
+        <div class="text-xs text-slate-500 font-mono">{op.catalog}.{op.namespace}</div>
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap">
+        <div class="text-sm text-slate-900">{op.policyName ?: '-'}</div>
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap">
+        <div class="text-sm text-slate-900">{op.startedAtFormatted}</div>
+        <div class="text-xs text-slate-500">{op.startedAtRelative}</div>
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{op.durationFormatted}</td>
+    <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
+        <a href="/ui/operations/{op.id}" class="text-floe-600 hover:text-floe-700 font-medium">View</a>
+    </td>
+</tr>
+{/for}
+<tr>
+    <td colspan="6" class="px-6 py-4 bg-slate-50 border-t border-slate-200">
+        <div class="flex items-center justify-between">
+            <span class="text-sm text-slate-600">Showing {offset + 1}-{offset + operations.size} of {totalCount} operations</span>
+            <div class="flex gap-2">
+                {#if hasPrev}<button hx-get="/ui/operations/list?offset={prevOffset}&limit={limit}&status={statusFilter ?: ''}" hx-target="#operations-table-body" hx-swap="innerHTML" class="px-3 py-1.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">Previous</button>{/if}
+                {#if hasMore}<button hx-get="/ui/operations/list?offset={nextOffset}&limit={limit}&status={statusFilter ?: ''}" hx-target="#operations-table-body" hx-swap="innerHTML" class="px-3 py-1.5 text-sm font-medium text-white bg-floe-600 rounded-md hover:bg-floe-700">Next</button>{/if}
+            </div>
+        </div>
+    </td>
+</tr>
+{/if}

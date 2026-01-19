@@ -1,0 +1,300 @@
+{#include base} {#title}Policies{/title} {#header}
+<header class="bg-white border-b border-slate-200">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-semibold text-slate-900">Policies</h1>
+                <p class="mt-1 text-sm text-slate-500">
+                    Manage maintenance policies for your Iceberg tables
+                </p>
+            </div>
+            <div class="flex items-center gap-3">
+                <button
+                    onclick="window.location.reload()"
+                    class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-floe-700 bg-floe-50 hover:bg-floe-100 rounded-lg transition-colors"
+                >
+                    <svg
+                        class="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        />
+                    </svg>
+                    Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+</header>
+{/header} {#content}
+<div class="space-y-6">
+    {! Stats summary !}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <div class="flex items-center justify-between">
+                <p class="text-sm font-medium text-slate-500">Total Policies</p>
+                <svg
+                    class="w-5 h-5 text-slate-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                </svg>
+            </div>
+            <p class="mt-2 text-2xl font-semibold text-slate-900">
+                {totalCount}
+            </p>
+        </div>
+
+        <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <div class="flex items-center justify-between">
+                <p class="text-sm font-medium text-slate-500">Enabled</p>
+                <svg
+                    class="w-5 h-5 text-emerald-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                </svg>
+            </div>
+            <p class="mt-2 text-2xl font-semibold text-emerald-600">
+                {enabledCount}
+            </p>
+        </div>
+
+        <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <div class="flex items-center justify-between">
+                <p class="text-sm font-medium text-slate-500">Disabled</p>
+                <svg
+                    class="w-5 h-5 text-slate-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+                    />
+                </svg>
+            </div>
+            <p class="mt-2 text-2xl font-semibold text-slate-600">
+                {disabledCount}
+            </p>
+        </div>
+    </div>
+
+    {! Policies list !}
+    <div
+        class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"
+    >
+        {#if policies.empty}
+        <div class="p-12 text-center">
+            <svg
+                class="w-12 h-12 mx-auto text-slate-300 mb-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+            >
+                <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+            </svg>
+            <p class="text-lg font-medium text-slate-900">
+                No policies configured
+            </p>
+            <p class="text-sm text-slate-500 mt-1">
+                Use the REST API to create maintenance policies
+            </p>
+        </div>
+        {#else}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th
+                            scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                        >
+                            Policy
+                        </th>
+                        <th
+                            scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                        >
+                            Table Pattern
+                        </th>
+                        <th
+                            scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                        >
+                            Operations
+                        </th>
+                        <th
+                            scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                        >
+                            Status
+                        </th>
+                        <th
+                            scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                        >
+                            Priority
+                        </th>
+                        <th scope="col" class="relative px-6 py-3">
+                            <span class="sr-only">Actions</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-slate-200">
+                    {#for policy in policies}
+                    <tr class="table-row-hover">
+                        <td class="px-6 py-4">
+                            <a href="/ui/policies/{policy.id}" class="group">
+                                <div
+                                    class="text-sm font-medium text-slate-900 group-hover:text-floe-600"
+                                >
+                                    {policy.name}
+                                </div>
+                                {#if policy.description}
+                                <div
+                                    class="text-xs text-slate-500 mt-0.5 truncate max-w-xs"
+                                >
+                                    {policy.description}
+                                </div>
+                                {/if}
+                            </a>
+                        </td>
+                        <td class="px-6 py-4">
+                            <code
+                                class="text-xs bg-slate-100 px-2 py-1 rounded font-mono"
+                                >{policy.tablePatternDisplay}</code
+                            >
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex flex-wrap gap-1">
+                                {#if policy.hasRewriteDataFiles}
+                                <span
+                                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                                >
+                                    Compact
+                                </span>
+                                {/if} {#if policy.hasExpireSnapshots}
+                                <span
+                                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800"
+                                >
+                                    Expire
+                                </span>
+                                {/if} {#if policy.hasOrphanCleanup}
+                                <span
+                                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800"
+                                >
+                                    Orphans
+                                </span>
+                                {/if} {#if policy.hasRewriteManifests}
+                                <span
+                                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-800"
+                                >
+                                    Manifests
+                                </span>
+                                {/if} {#if !policy.hasAnyOperations}
+                                <span class="text-xs text-slate-400"
+                                    >None configured</span
+                                >
+                                {/if}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {#if policy.enabled}
+                            <span
+                                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800"
+                            >
+                                <span
+                                    class="w-1.5 h-1.5 rounded-full bg-emerald-500"
+                                ></span>
+                                Enabled
+                            </span>
+                            {#else}
+                            <span
+                                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600"
+                            >
+                                <span
+                                    class="w-1.5 h-1.5 rounded-full bg-slate-400"
+                                ></span>
+                                Disabled
+                            </span>
+                            {/if}
+                        </td>
+                        <td
+                            class="px-6 py-4 whitespace-nowrap text-sm text-slate-500"
+                        >
+                            {policy.priority}
+                        </td>
+                        <td
+                            class="px-6 py-4 whitespace-nowrap text-right text-sm"
+                        >
+                            <a
+                                href="/ui/policies/{policy.id}"
+                                class="text-floe-600 hover:text-floe-700 font-medium"
+                            >
+                                View
+                            </a>
+                        </td>
+                    </tr>
+                    {/for}
+                </tbody>
+            </table>
+        </div>
+
+        {#if totalCount > limit}
+        <div
+            class="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between"
+        >
+            <span class="text-sm text-slate-500">
+                Showing {offset + 1}-{offset + policies.size} of {totalCount}
+            </span>
+            <div class="flex gap-2">
+                {#if hasPrev}
+                <a
+                    href="/ui/policies?limit={limit}&offset={prevOffset}"
+                    class="px-3 py-1.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50"
+                >
+                    Previous
+                </a>
+                {/if} {#if hasMore}
+                <a
+                    href="/ui/policies?limit={limit}&offset={nextOffset}"
+                    class="px-3 py-1.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50"
+                >
+                    Next
+                </a>
+                {/if}
+            </div>
+        </div>
+        {/if} {/if}
+    </div>
+</div>
+{/content} {/include}

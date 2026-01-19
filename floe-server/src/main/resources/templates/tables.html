@@ -1,0 +1,275 @@
+{#include base} {#title}Tables{/title} {#header}
+<header class="bg-white border-b border-slate-200">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-semibold text-slate-900">Tables</h1>
+                <p class="mt-1 text-sm text-slate-500">
+                    Browse Iceberg tables in catalog:
+                    <span class="font-medium">{catalogName}</span>
+                </p>
+            </div>
+            <div class="flex items-center gap-3">
+                {#if catalogHealthy}
+                <span
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800"
+                >
+                    <span
+                        class="w-1.5 h-1.5 rounded-full bg-emerald-500"
+                    ></span>
+                    Catalog Connected
+                </span>
+                {#else}
+                <span
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800"
+                >
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                    Catalog Disconnected
+                </span>
+                {/if}
+                <button
+                    onclick="window.location.reload()"
+                    class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-floe-700 bg-floe-50 hover:bg-floe-100 rounded-lg transition-colors"
+                >
+                    <svg
+                        class="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        />
+                    </svg>
+                    Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+</header>
+{/header} {#content}
+<div class="space-y-6">
+    {#if errorMessage}
+    <div class="rounded-lg bg-red-50 border border-red-200 p-4">
+        <div class="flex items-start gap-3">
+            <svg
+                class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+            >
+                <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+            </svg>
+            <div>
+                <p class="text-sm font-medium text-red-800">Connection Error</p>
+                <p class="text-sm text-red-700 mt-1">{errorMessage}</p>
+            </div>
+        </div>
+    </div>
+    {/if} {! Stats summary !}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <div class="flex items-center justify-between">
+                <p class="text-sm font-medium text-slate-500">Total Tables</p>
+                <svg
+                    class="w-5 h-5 text-floe-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"
+                    />
+                </svg>
+            </div>
+            <p class="mt-2 text-2xl font-semibold text-slate-900">
+                {totalTables}
+            </p>
+        </div>
+
+        <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <div class="flex items-center justify-between">
+                <p class="text-sm font-medium text-slate-500">Namespaces</p>
+                <svg
+                    class="w-5 h-5 text-slate-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                    />
+                </svg>
+            </div>
+            <p class="mt-2 text-2xl font-semibold text-slate-900">
+                {totalNamespaces}
+            </p>
+        </div>
+
+        <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <div class="flex items-center justify-between">
+                <p class="text-sm font-medium text-slate-500">Catalog</p>
+                <svg
+                    class="w-5 h-5 text-slate-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"
+                    />
+                </svg>
+            </div>
+            <p class="mt-2 text-lg font-semibold text-slate-900 truncate">
+                {catalogName}
+            </p>
+            <p class="text-xs text-slate-500">{catalogType}</p>
+        </div>
+    </div>
+
+    {! Tables list !}
+    <div
+        class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"
+    >
+        {#if tables.empty}
+        <div class="p-12 text-center">
+            <svg
+                class="w-12 h-12 mx-auto text-slate-300 mb-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+            >
+                <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"
+                />
+            </svg>
+            <p class="text-lg font-medium text-slate-900">No tables found</p>
+            <p class="text-sm text-slate-500 mt-1">
+                {#if catalogHealthy} The catalog is connected but no tables
+                exist yet. {#else} Unable to connect to the catalog. Check your
+                configuration. {/if}
+            </p>
+        </div>
+        {#else}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th
+                            scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                        >
+                            Table
+                        </th>
+                        <th
+                            scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                        >
+                            Namespace
+                        </th>
+                        <th
+                            scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                        >
+                            Catalog
+                        </th>
+                        <th scope="col" class="relative px-6 py-3">
+                            <span class="sr-only">Actions</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-slate-200">
+                    {#for t in tables}
+                    <tr class="table-row-hover">
+                        <td class="px-6 py-4">
+                            <a
+                                href="/ui/tables/{t.namespace}/{t.name}"
+                                class="group"
+                            >
+                                <div
+                                    class="text-sm font-medium text-slate-900 group-hover:text-floe-600"
+                                >
+                                    {t.name}
+                                </div>
+                                <code class="text-xs text-slate-500 font-mono"
+                                    >{t.qualifiedName}</code
+                                >
+                            </a>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span
+                                class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700"
+                            >
+                                {t.namespace}
+                            </span>
+                        </td>
+                        <td
+                            class="px-6 py-4 whitespace-nowrap text-sm text-slate-500"
+                        >
+                            {t.catalog}
+                        </td>
+                        <td
+                            class="px-6 py-4 whitespace-nowrap text-right text-sm"
+                        >
+                            <a
+                                href="/ui/tables/{t.namespace}/{t.name}"
+                                class="text-floe-600 hover:text-floe-700 font-medium"
+                            >
+                                View
+                            </a>
+                        </td>
+                    </tr>
+                    {/for}
+                </tbody>
+            </table>
+        </div>
+
+        {#if totalTables > limit}
+        <div
+            class="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between"
+        >
+            <span class="text-sm text-slate-500">
+                Showing {offset + 1}-{offset + tables.size} of {totalTables}
+            </span>
+            <div class="flex gap-2">
+                {#if hasPrev}
+                <a
+                    href="/ui/tables?limit={limit}&offset={prevOffset}"
+                    class="px-3 py-1.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50"
+                >
+                    Previous
+                </a>
+                {/if} {#if hasMore}
+                <a
+                    href="/ui/tables?limit={limit}&offset={nextOffset}"
+                    class="px-3 py-1.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50"
+                >
+                    Next
+                </a>
+                {/if}
+            </div>
+        </div>
+        {/if} {/if}
+    </div>
+</div>
+{/content} {/include}

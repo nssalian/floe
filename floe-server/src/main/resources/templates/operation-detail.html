@@ -1,0 +1,195 @@
+{#include base}
+
+{#title}Operation Details{/title}
+
+{#header}
+<header class="bg-white border-b border-slate-200">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+        <div class="flex items-center gap-4">
+            <a href="/ui/operations"
+               class="p-2 -ml-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+            </a>
+            <div class="flex-1">
+                <div class="flex items-center gap-3">
+                    <h1 class="text-2xl font-semibold text-slate-900">Operation Details</h1>
+                    {#if op.status == 'RUNNING'}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                        Running
+                    </span>
+                    {#else if op.status == 'SUCCESS'}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        Success
+                    </span>
+                    {#else if op.status == 'FAILED'}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                        Failed
+                    </span>
+                    {#else if op.status == 'PARTIAL_FAILURE'}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                        Partial Failure
+                    </span>
+                    {#else}
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                        {op.status}
+                    </span>
+                    {/if}
+                </div>
+                <p class="mt-1 text-sm text-slate-500 font-mono">{op.id}</p>
+            </div>
+
+            {#if op.status == 'RUNNING'}
+            <div hx-get="/ui/operations/{op.id}/status"
+                 hx-trigger="every 5s"
+                 hx-target="#operation-status"
+                 hx-swap="innerHTML">
+            </div>
+            {/if}
+        </div>
+    </div>
+</header>
+{/header}
+
+{#content}
+<div id="main-content" class="space-y-6">
+
+    {! Overview cards !}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {! Table info !}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 class="text-sm font-medium text-slate-500 mb-3">Table</h3>
+            <p class="text-lg font-semibold text-slate-900">{op.tableName}</p>
+            <p class="text-sm text-slate-500 font-mono mt-1">{op.catalog}.{op.namespace}</p>
+            <a href="/ui/tables/{op.namespace}/{op.tableName}"
+               class="inline-flex items-center gap-1 text-sm text-floe-600 hover:text-floe-700 mt-3">
+                View table
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </a>
+        </div>
+
+        {! Policy info !}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 class="text-sm font-medium text-slate-500 mb-3">Policy</h3>
+            {#if op.policyName}
+            <p class="text-lg font-semibold text-slate-900">{op.policyName}</p>
+            {#if op.policyId}
+            <a href="/ui/policies/{op.policyId}"
+               class="inline-flex items-center gap-1 text-sm text-floe-600 hover:text-floe-700 mt-3">
+                View policy
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </a>
+            {/if}
+            {#else}
+            <p class="text-lg text-slate-400">No policy</p>
+            {/if}
+        </div>
+
+        {! Timing info !}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 class="text-sm font-medium text-slate-500 mb-3">Timing</h3>
+            <div class="space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-sm text-slate-500">Started</span>
+                    <span class="text-sm font-medium text-slate-900">{op.startedAtFormatted}</span>
+                </div>
+                {#if op.completedAt}
+                <div class="flex justify-between">
+                    <span class="text-sm text-slate-500">Completed</span>
+                    <span class="text-sm font-medium text-slate-900">{op.completedAtFormatted}</span>
+                </div>
+                {/if}
+                <div class="flex justify-between">
+                    <span class="text-sm text-slate-500">Duration</span>
+                    <span class="text-sm font-medium text-slate-900">{op.durationFormatted}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {! Error message if failed !}
+    {#if op.errorMessage}
+    <div class="bg-red-50 border border-red-200 rounded-xl p-6">
+        <div class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <div>
+                <h3 class="text-sm font-medium text-red-800">Error Details</h3>
+                <pre class="mt-2 text-sm text-red-700 whitespace-pre-wrap font-mono bg-red-100/50 rounded-lg p-3 overflow-x-auto">{op.errorMessage}</pre>
+            </div>
+        </div>
+    </div>
+    {/if}
+
+    {! Operation results !}
+    {#if op.results}
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-900">Operation Results</h3>
+            <p class="text-sm text-slate-500 mt-1">
+                {op.results.successCount} succeeded,
+                {op.results.failedCount} failed,
+                {op.results.skippedCount} skipped
+            </p>
+        </div>
+
+        <div class="divide-y divide-slate-200">
+            {#for result in op.results.operations}
+            <div class="px-6 py-4 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    {#if result.status == 'SUCCESS'}
+                    <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                    </div>
+                    {#else if result.status == 'FAILED'}
+                    <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </div>
+                    {#else}
+                    <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/>
+                        </svg>
+                    </div>
+                    {/if}
+                    <div>
+                        <p class="text-sm font-medium text-slate-900">{result.operationType}</p>
+                        {#if result.errorMessage}
+                        <p class="text-xs text-red-600 mt-0.5">{result.errorMessage}</p>
+                        {/if}
+                    </div>
+                </div>
+                <div class="text-sm text-slate-500">
+                    {result.durationFormatted}
+                </div>
+            </div>
+            {/for}
+        </div>
+    </div>
+    {/if}
+
+</div>
+{/content}
+
+{/include}

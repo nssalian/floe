@@ -1,0 +1,493 @@
+package com.floe.core.orchestrator;
+
+import com.floe.core.catalog.TableIdentifier;
+import com.floe.core.engine.ExecutionContext;
+import com.floe.core.engine.ExecutionEngine;
+import com.floe.core.engine.ExecutionResult;
+import com.floe.core.engine.ExecutionStatus;
+import com.floe.core.maintenance.*;
+import com.floe.core.operation.OperationRecord;
+import com.floe.core.operation.OperationResults;
+import com.floe.core.operation.OperationStatus;
+import com.floe.core.operation.OperationStore;
+import com.floe.core.policy.MaintenancePolicy;
+import com.floe.core.policy.OperationType;
+import com.floe.core.policy.PolicyMatcher;
+import com.floe.core.policy.PolicyStore;
+import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Orchestrates maintenance operations for Iceberg tables.
+ *
+ * <p>The Orchestrator connects:
+ *
+ * <ul>
+ *   <li>PolicyStore - where policies live
+ *   <li>PolicyMatcher - which policy applies to which table
+ *   <li>ExecutionEngine - where to run maintenance
+ *   <li>OperationStore - where operation history is persisted
+ * </ul>
+ *
+ * <p>Flow:
+ *
+ * <ol>
+ *   <li>Receive table identifier
+ *   <li>Create operation record in RUNNING state
+ *   <li>Look up matching policy via PolicyMatcher
+ *   <li>Build operations from policy configuration
+ *   <li>Execute operations sequentially via ExecutionEngine
+ *   <li>Update operation record with results
+ *   <li>Return aggregated results
+ * </ol>
+ */
+public class MaintenanceOrchestrator {
+
+    private static final Logger LOG = LoggerFactory.getLogger(MaintenanceOrchestrator.class);
+
+    private final PolicyStore policyStore;
+    private final PolicyMatcher policyMatcher;
+    private final ExecutionEngine executionEngine;
+    private final OperationStore operationStore;
+    private final ExecutorService executorService;
+
+    public MaintenanceOrchestrator(
+            PolicyStore policyStore,
+            PolicyMatcher policyMatcher,
+            ExecutionEngine executionEngine,
+            OperationStore operationStore) {
+        this.policyStore = policyStore;
+        this.policyMatcher = policyMatcher;
+        this.executionEngine = executionEngine;
+        this.operationStore = operationStore;
+        this.executorService =
+                Executors.newFixedThreadPool(
+                        4,
+                        r -> {
+                            Thread t = new Thread(r, "floe-maintenance-orchestrator");
+                            t.setDaemon(true);
+                            return t;
+                        });
+    }
+
+    public MaintenanceOrchestrator(
+            PolicyStore policyStore,
+            PolicyMatcher policyMatcher,
+            ExecutionEngine executionEngine,
+            OperationStore operationStore,
+            ExecutorService executorService) {
+        this.policyStore = policyStore;
+        this.policyMatcher = policyMatcher;
+        this.executionEngine = executionEngine;
+        this.operationStore = operationStore;
+        this.executorService = executorService;
+    }
+
+    /**
+     * Run all enabled maintenance operations for a table based on its matching policy.
+     *
+     * @param catalog the catalog name
+     * @param table the table to maintain
+     * @return aggregated result of all operations
+     */
+    public OrchestratorResult runMaintenance(String catalog, TableIdentifier table) {
+        return runMaintenance(catalog, table, EnumSet.allOf(MaintenanceOperation.Type.class));
+    }
+
+    /**
+     * Run specific maintenance operations for a table based on its matching policy. Only operations
+     * that are both in the filter AND enabled in the policy will run.
+     *
+     * @param catalog the catalog name
+     * @param table the table to maintain
+     * @param operationFilter which operation types to consider running
+     * @return aggregated result of all operations
+     */
+    private OrchestratorResult runMaintenance(
+            String catalog,
+            TableIdentifier table,
+            EnumSet<MaintenanceOperation.Type> operationFilter) {
+        String orchestrationId = UUID.randomUUID().toString();
+        Instant startTime = Instant.now();
+        LOG.info("Starting maintenance for table: {}", table);
+
+        // 1. Create operation record in RUNNING state
+        OperationRecord record =
+                operationStore.createOperation(
+                        OperationRecord.builder()
+                                .catalog(catalog)
+                                .namespace(table.namespace())
+                                .tableName(table.table())
+                                .status(OperationStatus.RUNNING)
+                                .startedAt(startTime)
+                                .build());
+
+        try {
+            // 2. Get all policies and find matching one
+            Optional<MaintenancePolicy> matchingPolicyOpt =
+                    policyMatcher.findEffectivePolicy(catalog, table);
+
+            if (matchingPolicyOpt.isEmpty()) {
+                LOG.warn("No matching maintenance policy found for table: {}", table);
+                OrchestratorResult result =
+                        OrchestratorResult.noPolicy(orchestrationId, table, startTime);
+                persistResult(record.id(), result);
+                return result;
+            }
+
+            MaintenancePolicy matchingPolicy = matchingPolicyOpt.get();
+            LOG.info("Found matching policy '{}' for table: {}", matchingPolicy.name(), table);
+
+            // Update record with policy info
+            UUID policyUuid =
+                    matchingPolicy.id() != null ? UUID.fromString(matchingPolicy.id()) : null;
+            operationStore.updatePolicyInfo(record.id(), matchingPolicy.name(), policyUuid);
+            operationStore.updateStatus(record.id(), OperationStatus.RUNNING, null);
+
+            // 3. Build operations based on policy and filter
+            List<OperationToRun> operations = buildOperations(matchingPolicy, operationFilter);
+
+            if (operations.isEmpty()) {
+                LOG.info(
+                        "No operations to run for table {} (filter={}, policy={})",
+                        table,
+                        operationFilter,
+                        matchingPolicy.name());
+                OrchestratorResult result =
+                        OrchestratorResult.noOperations(
+                                orchestrationId, table, matchingPolicy.name(), startTime);
+                persistResult(record.id(), result);
+                return result;
+            }
+
+            // 4. Execute operations sequentially
+            List<OperationResult> results = executeOperations(table, operations);
+
+            // 5. Build and persist final result
+            OrchestratorResult result =
+                    OrchestratorResult.completed(
+                            orchestrationId, table, matchingPolicy.name(), startTime, results);
+            persistResult(record.id(), result);
+            return result;
+        } catch (Exception e) {
+            LOG.error("Maintenance orchestration failed for table {}", table, e);
+            operationStore.markFailed(record.id(), e.getMessage());
+            throw e;
+        }
+    }
+
+    /**
+     * Run maintenance for a table using a specific policy by name.
+     *
+     * @param catalog the catalog name
+     * @param table the table to maintain
+     * @param policyName the name of the policy to use
+     * @return aggregated result of all operations
+     */
+    public OrchestratorResult runMaintenanceWithPolicy(
+            String catalog, TableIdentifier table, String policyName) {
+        String orchestrationId = UUID.randomUUID().toString();
+        Instant startTime = Instant.now();
+        LOG.info("Starting maintenance for table {} with policy '{}'", table, policyName);
+
+        // 1. Create operation record in RUNNING state
+        OperationRecord record =
+                operationStore.createOperation(
+                        OperationRecord.builder()
+                                .catalog(catalog)
+                                .namespace(table.namespace())
+                                .tableName(table.table())
+                                .policyName(policyName)
+                                .status(OperationStatus.RUNNING)
+                                .startedAt(startTime)
+                                .build());
+
+        try {
+            // 2. Find policy by name
+            Optional<MaintenancePolicy> policyOpt = policyStore.findByName(policyName);
+
+            if (policyOpt.isEmpty()) {
+                LOG.warn("Policy '{}' not found", policyName);
+                OrchestratorResult result =
+                        OrchestratorResult.noPolicyWithMessage(
+                                orchestrationId,
+                                table,
+                                startTime,
+                                "Policy '" + policyName + "' not found");
+                persistResult(record.id(), result);
+                return result;
+            }
+
+            MaintenancePolicy policy = policyOpt.get();
+
+            // 3. Verify policy is enabled
+            if (!policy.enabled()) {
+                LOG.warn("Policy '{}' is disabled", policyName);
+                OrchestratorResult result =
+                        OrchestratorResult.noPolicyWithMessage(
+                                orchestrationId,
+                                table,
+                                startTime,
+                                "Policy '" + policyName + "' is disabled");
+                persistResult(record.id(), result);
+                return result;
+            }
+
+            LOG.info("Using policy '{}' for table: {}", policy.name(), table);
+
+            // 4. Build operations based on policy (no filter - run all enabled)
+            List<OperationToRun> operations =
+                    buildOperations(policy, EnumSet.allOf(MaintenanceOperation.Type.class));
+
+            if (operations.isEmpty()) {
+                LOG.info("No operations enabled in policy '{}'", policy.name());
+                OrchestratorResult result =
+                        OrchestratorResult.noOperations(
+                                orchestrationId, table, policy.name(), startTime);
+                persistResult(record.id(), result);
+                return result;
+            }
+
+            // 5. Execute operations sequentially
+            List<OperationResult> results = executeOperations(table, operations);
+
+            // 6. Build and persist final result
+            OrchestratorResult result =
+                    OrchestratorResult.completed(
+                            orchestrationId, table, policy.name(), startTime, results);
+            persistResult(record.id(), result);
+            return result;
+        } catch (Exception e) {
+            LOG.error(
+                    "Maintenance orchestration failed for table {} with policy {}",
+                    table,
+                    policyName,
+                    e);
+            operationStore.markFailed(record.id(), e.getMessage());
+            throw e;
+        }
+    }
+
+    /** Execute a list of operations sequentially, stopping on failure. */
+    private List<OperationResult> executeOperations(
+            TableIdentifier table, List<OperationToRun> operations) {
+        List<OperationResult> results = new ArrayList<>();
+        boolean hadFailure = false;
+
+        for (OperationToRun op : operations) {
+            if (hadFailure) {
+                LOG.info("Skipping {} due to previous failure", op.type());
+                results.add(OperationResult.skipped(op.type(), "Previous operation failed"));
+                continue;
+            }
+
+            LOG.info("Executing {} on table {}", op.type(), table);
+            OperationResult result = executeOperation(table, op);
+            results.add(result);
+
+            if (result.status() == ExecutionStatus.FAILED) {
+                hadFailure = true;
+                LOG.warn(
+                        "Operation {} failed on table {}: {}",
+                        op.type(),
+                        table,
+                        result.errorMessage());
+            } else {
+                LOG.info("Operation {} completed on table {}", op.type(), table);
+            }
+        }
+
+        return results;
+    }
+
+    /** Persist the orchestration result to the operation store. */
+    private void persistResult(UUID recordId, OrchestratorResult result) {
+        OperationStatus status = OperationStatus.fromOrchestratorStatus(result.status());
+        OperationResults results = OperationResults.from(result.operationResults());
+        operationStore.updateStatus(recordId, status, results);
+    }
+
+    /** Internal record to hold an operation and its type. */
+    private record OperationToRun(MaintenanceOperation.Type type, MaintenanceOperation operation) {}
+
+    /** Shutdown the orchestrator's thread pool. */
+    public void shutdown() {
+        executorService.shutdown();
+    }
+
+    /** Build maintenance operations from policy based on filter. */
+    private List<OperationToRun> buildOperations(
+            MaintenancePolicy policy, Set<MaintenanceOperation.Type> filter) {
+        List<OperationToRun> operations = new ArrayList<>();
+        // In the order - rewrite data files, expire snapshots, orphan cleanup, rewrite manifests
+        if (filter.contains(MaintenanceOperation.Type.REWRITE_DATA_FILES)
+                && policy.hasOperationConfig(OperationType.REWRITE_DATA_FILES)) {
+            operations.add(
+                    new OperationToRun(
+                            MaintenanceOperation.Type.REWRITE_DATA_FILES,
+                            buildRewriteDataFilesOperation(policy)));
+        }
+        if (filter.contains(MaintenanceOperation.Type.EXPIRE_SNAPSHOTS)
+                && policy.hasOperationConfig(OperationType.EXPIRE_SNAPSHOTS)) {
+            operations.add(
+                    new OperationToRun(
+                            MaintenanceOperation.Type.EXPIRE_SNAPSHOTS,
+                            buildExpireSnapshotsOperation(policy)));
+        }
+
+        if (filter.contains(MaintenanceOperation.Type.ORPHAN_CLEANUP)
+                && policy.hasOperationConfig(OperationType.ORPHAN_CLEANUP)) {
+            operations.add(
+                    new OperationToRun(
+                            MaintenanceOperation.Type.ORPHAN_CLEANUP,
+                            buildOrphanCleanupOperation(policy)));
+        }
+
+        if (filter.contains(MaintenanceOperation.Type.REWRITE_MANIFESTS)
+                && policy.hasOperationConfig(OperationType.REWRITE_MANIFESTS)) {
+            operations.add(
+                    new OperationToRun(
+                            MaintenanceOperation.Type.REWRITE_MANIFESTS,
+                            buildRewriteManifestsOperation(policy)));
+        }
+        return operations;
+    }
+
+    private RewriteDataFilesOperation buildRewriteDataFilesOperation(MaintenancePolicy policy) {
+        var config = policy.rewriteDataFiles();
+        var builder = RewriteDataFilesOperation.builder();
+
+        if (config.strategy() != null) {
+            builder.strategy(RewriteDataFilesOperation.RewriteStrategy.valueOf(config.strategy()));
+        }
+        if (config.sortOrder() != null) {
+            builder.sortOrder(config.sortOrder());
+        }
+        if (config.zOrderColumns() != null) {
+            builder.zOrderColumns(config.zOrderColumns());
+        }
+        if (config.targetFileSizeBytes() != null) {
+            builder.targetFileSizeBytes(config.targetFileSizeBytes());
+        }
+        if (config.maxFileGroupSizeBytes() != null) {
+            builder.maxFileGroupSizeBytes(config.maxFileGroupSizeBytes());
+        }
+        if (config.maxConcurrentFileGroupRewrites() != null) {
+            builder.maxConcurrentFileGroupRewrites(config.maxConcurrentFileGroupRewrites());
+        }
+        if (config.partialProgressEnabled() != null) {
+            builder.partialProgressEnabled(config.partialProgressEnabled());
+        }
+        if (config.partialProgressMaxCommits() != null) {
+            builder.partialProgressMaxCommits(config.partialProgressMaxCommits());
+        }
+        if (config.partialProgressMaxFailedCommits() != null) {
+            builder.partialProgressMaxFailedCommits(config.partialProgressMaxFailedCommits());
+        }
+        if (config.filter() != null) {
+            builder.filter(config.filter());
+        }
+        if (config.rewriteJobOrder() != null) {
+            builder.rewriteJobOrder(
+                    RewriteDataFilesOperation.RewriteJobOrder.valueOf(config.rewriteJobOrder()));
+        }
+        if (config.useStartingSequenceNumber() != null) {
+            builder.useStartingSequenceNumber(config.useStartingSequenceNumber());
+        }
+        if (config.removeDanglingDeletes() != null) {
+            builder.removeDanglingDeletes(config.removeDanglingDeletes());
+        }
+        if (config.outputSpecId() != null) {
+            builder.outputSpecId(config.outputSpecId());
+        }
+
+        return builder.build();
+    }
+
+    private ExpireSnapshotsOperation buildExpireSnapshotsOperation(MaintenancePolicy policy) {
+        var config = policy.expireSnapshots();
+        var builder = ExpireSnapshotsOperation.builder();
+
+        if (config.retainLast() != null && config.retainLast() >= 0) {
+            builder.retainLast(config.retainLast());
+        }
+        if (config.maxSnapshotAge() != null) {
+            builder.maxSnapshotAge(config.maxSnapshotAge());
+        }
+        if (config.cleanExpiredMetadata() != null) {
+            builder.cleanExpiredMetadata(config.cleanExpiredMetadata());
+        }
+
+        return builder.build();
+    }
+
+    private OrphanCleanupOperation buildOrphanCleanupOperation(MaintenancePolicy policy) {
+        var config = policy.orphanCleanup();
+        var builder = OrphanCleanupOperation.builder();
+
+        if (config.retentionPeriodInDays() != null) {
+            builder.olderThan(config.retentionPeriodInDays());
+        }
+        if (config.location() != null) {
+            builder.location(config.location());
+        }
+        if (config.prefixMismatchMode() != null) {
+            builder.prefixMismatchMode(
+                    OrphanCleanupOperation.PrefixMismatchMode.valueOf(config.prefixMismatchMode()));
+        }
+
+        return builder.build();
+    }
+
+    private RewriteManifestsOperation buildRewriteManifestsOperation(MaintenancePolicy policy) {
+        var config = policy.rewriteManifests();
+        var builder = RewriteManifestsOperation.builder();
+
+        if (config.specId() != null) {
+            builder.specId(config.specId());
+        }
+        if (config.stagingLocation() != null) {
+            builder.stagingLocation(config.stagingLocation());
+        }
+        if (config.sortBy() != null) {
+            builder.sortBy(config.sortBy());
+        }
+
+        return builder.build();
+    }
+
+    private OperationResult executeOperation(TableIdentifier table, OperationToRun opToRun) {
+        Instant opStartTime = Instant.now();
+        String executionId = UUID.randomUUID().toString();
+        ExecutionContext context =
+                ExecutionContext.builder(executionId).timeoutSeconds(3600).build();
+        MaintenanceOperation currentOp = opToRun.operation;
+        try {
+            Future<ExecutionResult> future = executionEngine.execute(table, currentOp, context);
+            ExecutionResult result = future.get();
+            String errorMsg =
+                    result.errorMessage().isPresent() ? result.errorMessage().get() : null;
+            return new OperationResult(
+                    currentOp.getType(),
+                    result.status(),
+                    opStartTime,
+                    Instant.now(),
+                    result.metrics(),
+                    errorMsg);
+        } catch (Exception e) {
+            LOG.error("Exception executing {} on {}", currentOp.getType(), table, e);
+            return new OperationResult(
+                    currentOp.getType(),
+                    ExecutionStatus.FAILED,
+                    opStartTime,
+                    Instant.now(),
+                    Map.of(),
+                    e.getMessage());
+        }
+    }
+}

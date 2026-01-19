@@ -1,0 +1,233 @@
+# Floe with Apache Polaris
+#
+# Apache Polaris (Snowflake Open Catalog) provides:
+# - Centralized access control across engines
+# - OAuth2-based authentication
+# - Fine-grained permissions (catalog, namespace, table level)
+#
+# Services:
+#   - Floe server (http://localhost:9091)
+#   - Polaris catalog server
+#   - MinIO (S3-compatible storage)
+#   - Postgres (Floe + Polaris persistence)
+#   - Livy (Spark job submission)
+#   - Trino (optional, --profile trino)
+#
+# Access:
+#   - Floe UI: http://localhost:9091
+#   - Polaris API: http://localhost:8181
+#   - MinIO Console: http://localhost:9001 (admin/password)
+
+services:
+  # Apache Polaris - Open Catalog with access control
+  polaris:
+    image: apache/polaris:latest
+    container_name: polaris-server
+    ports:
+      - "8181:8181"
+    environment:
+      # In-memory for demo (use postgres for production)
+      polaris.persistence.type: in-memory
+      # Bootstrap credentials format: realm,clientId,clientSecret
+      POLARIS_BOOTSTRAP_CREDENTIALS: POLARIS,root,secret
+      # AWS credentials for S3 access
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+      AWS_REGION: us-east-1
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8182/q/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    depends_on:
+      - mc
+
+  # Initialize Polaris catalog and permissions
+  polaris-init:
+    image: curlimages/curl:latest
+    container_name: polaris-init
+    depends_on:
+      polaris:
+        condition: service_healthy
+    volumes:
+      - ./init-polaris.sh:/init-polaris.sh:ro
+    entrypoint: ["/bin/sh", "/init-polaris.sh"]
+
+  # S3-compatible storage
+  minio:
+    image: minio/minio:latest
+    container_name: polaris-minio
+    ports:
+      - "19000:9000"
+      - "19001:9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Create S3 bucket
+  mc:
+    image: minio/mc:latest
+    container_name: polaris-mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set minio http://minio:9000 admin password;
+      mc mb minio/warehouse --ignore-existing;
+      mc anonymous set download minio/warehouse;
+      exit 0;
+      "
+
+  # Postgres for Floe state
+  postgres:
+    image: postgres:16-alpine
+    container_name: polaris-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../../docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U floe -d floe"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Floe Server
+  floe:
+    image: ${FLOE_IMAGE}
+    container_name: polaris-floe
+    ports:
+      - "9091:9091"
+    environment:
+      QUARKUS_HTTP_PORT: 9091
+      # Store
+      FLOE_STORE_TYPE: POSTGRES
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/floe
+      QUARKUS_DATASOURCE_USERNAME: floe
+      QUARKUS_DATASOURCE_PASSWORD: floe
+      # Catalog - Polaris
+      FLOE_CATALOG_TYPE: POLARIS
+      FLOE_CATALOG_NAME: demo
+      FLOE_CATALOG_POLARIS_URI: http://polaris:8181/api/catalog
+      FLOE_CATALOG_POLARIS_CLIENT_ID: root
+      FLOE_CATALOG_POLARIS_CLIENT_SECRET: secret
+      # For Polaris, warehouse = catalog name, not S3 path
+      FLOE_CATALOG_WAREHOUSE: demo
+      # S3
+      FLOE_CATALOG_S3_ENDPOINT: http://minio:9000
+      FLOE_CATALOG_S3_ACCESS_KEY_ID: admin
+      FLOE_CATALOG_S3_SECRET_ACCESS_KEY: password
+      FLOE_CATALOG_S3_REGION: us-east-1
+      # AWS SDK needs these env vars for S3FileIO
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+      # Engine
+      FLOE_ENGINE_TYPE: ${FLOE_ENGINE_TYPE:-SPARK}
+      FLOE_LIVY_URL: http://livy:8998
+      FLOE_TRINO_JDBC_URL: jdbc:trino://trino:8080
+      # Auth disabled for local dev
+      FLOE_AUTH_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      polaris-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9091/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Livy - Spark job submission
+  livy:
+    image: ${FLOE_LIVY_IMAGE}
+    container_name: polaris-livy
+    ports:
+      - "8998:8998"
+    environment:
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+      AWS_REGION: us-east-1
+    depends_on:
+      polaris-init:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+
+  # Trino (optional)
+  trino:
+    image: trinodb/trino:479
+    container_name: polaris-trino
+    profiles: ["trino"]
+    ports:
+      - "8085:8080"
+    environment:
+      CATALOG_NAME: demo
+      CATALOG_TYPE: rest
+      CATALOG_URI: http://polaris:8181/api/catalog
+      # For Polaris, warehouse = catalog name
+      CATALOG_WAREHOUSE: demo
+      # OAuth2 credentials for Polaris
+      CATALOG_CREDENTIAL: root:secret
+      CATALOG_SCOPE: PRINCIPAL_ROLE:ALL
+      S3_ENDPOINT: http://minio:9000
+      S3_PATH_STYLE: "true"
+      S3_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+    volumes:
+      - ../../docker/trino/config.properties:/etc/trino/config.properties:ro
+      - ../../docker/trino/jvm.config:/etc/trino/jvm.config:ro
+      - ../../docker/trino/node.properties:/etc/trino/node.properties:ro
+      - ../../docker/trino/entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - ../../docker/trino/catalog/iceberg.properties.template:/etc/trino/catalog/iceberg.properties.template:ro
+    entrypoint: ["/usr/local/bin/entrypoint.sh"]
+    depends_on:
+      polaris-init:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+
+  # Spark (for creating test tables)
+  spark:
+    image: tabulario/spark-iceberg:latest
+    container_name: polaris-spark
+    profiles: ["spark"]
+    ports:
+      - "8888:8888"
+      - "4040:4040"
+    environment:
+      # Catalog config for setup-demo-tables.py
+      CATALOG_TYPE: polaris
+      CATALOG_NAME: demo
+      CATALOG_URI: http://polaris:8181/api/catalog
+      CATALOG_WAREHOUSE: s3://warehouse/
+      S3_ENDPOINT: http://minio:9000
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+      AWS_REGION: us-east-1
+    volumes:
+      # Override default spark config to use REST catalog with Polaris
+      - ../../docker/spark/spark-defaults-polaris.conf:/opt/spark/conf/spark-defaults.conf:ro
+    depends_on:
+      - polaris
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: floe-polaris

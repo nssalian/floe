@@ -1,0 +1,194 @@
+{#include base} {#title}{table.name}{/title} {#header}
+<header class="bg-white border-b border-slate-200">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+        <div class="flex items-center gap-4">
+            <a
+                href="/ui/tables"
+                class="p-2 -ml-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            >
+                <svg
+                    class="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M15 19l-7-7 7-7"
+                    />
+                </svg>
+            </a>
+            <div class="flex-1">
+                <div class="flex items-center gap-3">
+                    <h1 class="text-2xl font-semibold text-slate-900">
+                        {table.name}
+                    </h1>
+                    {#if table.isEmpty}
+                    <span
+                        class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600"
+                    >
+                        Empty
+                    </span>
+                    {/if}
+                </div>
+                <p class="mt-1 text-sm text-slate-500 font-mono">
+                    {table.qualifiedName}
+                </p>
+            </div>
+        </div>
+    </div>
+</header>
+{/header} {#content}
+<div class="space-y-6">
+    {! Overview cards !}
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <p class="text-sm font-medium text-slate-500">Total Records</p>
+            <p class="mt-2 text-2xl font-semibold text-slate-900">
+                {table.totalRecordCountFormatted}
+            </p>
+        </div>
+
+        <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <p class="text-sm font-medium text-slate-500">Data Files</p>
+            <p class="mt-2 text-2xl font-semibold text-slate-900">
+                {table.dataFileCount}
+            </p>
+        </div>
+
+        <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <p class="text-sm font-medium text-slate-500">Total Size</p>
+            <p class="mt-2 text-2xl font-semibold text-slate-900">
+                {table.totalDataSizeFormatted}
+            </p>
+        </div>
+
+        <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <p class="text-sm font-medium text-slate-500">Avg File Size</p>
+            <p class="mt-2 text-2xl font-semibold text-slate-900">
+                {table.averageFileSizeFormatted}
+            </p>
+        </div>
+
+        <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <p class="text-sm font-medium text-slate-500">Snapshots</p>
+            <p class="mt-2 text-2xl font-semibold text-slate-900">
+                {table.snapshotCount}
+            </p>
+        </div>
+    </div>
+
+    {! Table Details !}
+    <div
+        class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"
+    >
+        <div class="px-6 py-4 border-b border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-900">Table Details</h3>
+        </div>
+
+        <div class="divide-y divide-slate-200">
+            <div class="px-6 py-4 flex justify-between">
+                <span class="text-sm text-slate-500">Location</span>
+                <code class="text-sm font-mono text-slate-900 truncate max-w-md"
+                    >{table.location}</code
+                >
+            </div>
+            <div class="px-6 py-4 flex justify-between">
+                <span class="text-sm text-slate-500">Catalog</span>
+                <span class="text-sm font-medium text-slate-900"
+                    >{table.catalog}</span
+                >
+            </div>
+            <div class="px-6 py-4 flex justify-between">
+                <span class="text-sm text-slate-500">Namespace</span>
+                <span class="text-sm font-medium text-slate-900"
+                    >{table.namespace}</span
+                >
+            </div>
+            <div class="px-6 py-4 flex justify-between">
+                <span class="text-sm text-slate-500">Format Version</span>
+                <span class="text-sm font-medium text-slate-900"
+                    >v{table.formatVersion}</span
+                >
+            </div>
+            <div class="px-6 py-4 flex justify-between">
+                <span class="text-sm text-slate-500">Partition Spec</span>
+                <code class="text-sm font-mono text-slate-900"
+                    >{table.partitionSpec}</code
+                >
+            </div>
+            <div class="px-6 py-4 flex justify-between">
+                <span class="text-sm text-slate-500">Sort Order</span>
+                <code class="text-sm font-mono text-slate-900"
+                    >{table.sortOrder}</code
+                >
+            </div>
+            <div class="px-6 py-4 flex justify-between">
+                <span class="text-sm text-slate-500">Current Snapshot ID</span>
+                <code class="text-sm font-mono text-slate-900"
+                    >{table.currentSnapshotId}</code
+                >
+            </div>
+            <div class="px-6 py-4 flex justify-between">
+                <span class="text-sm text-slate-500">Latest Snapshot</span>
+                <span class="text-sm font-medium text-slate-900"
+                    >{table.currentSnapshotTimestamp}</span
+                >
+            </div>
+            <div class="px-6 py-4 flex justify-between">
+                <span class="text-sm text-slate-500">Oldest Snapshot</span>
+                <span class="text-sm font-medium text-slate-900"
+                    >{table.oldestSnapshotTimestamp}</span
+                >
+            </div>
+            <div class="px-6 py-4 flex justify-between">
+                <span class="text-sm text-slate-500">Last Modified</span>
+                <span class="text-sm font-medium text-slate-900"
+                    >{table.lastModifiedFormatted}</span
+                >
+            </div>
+        </div>
+    </div>
+
+    {! Health Metrics !}
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <p class="text-sm font-medium text-slate-500">Small Files</p>
+            <p class="mt-2 text-2xl font-semibold text-slate-900">
+                {table.smallFileCount}
+            </p>
+            <p class="text-xs text-slate-400">under 100MB</p>
+        </div>
+
+        <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <p class="text-sm font-medium text-slate-500">Delete Files</p>
+            <p class="mt-2 text-2xl font-semibold text-slate-900">
+                {table.deleteFileCount}
+            </p>
+            <p class="text-xs text-slate-400">
+                {table.positionDeleteFileCount} position,
+                {table.equalityDeleteFileCount} equality
+            </p>
+        </div>
+
+        <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <p class="text-sm font-medium text-slate-500">Partitions</p>
+            <p class="mt-2 text-2xl font-semibold text-slate-900">
+                {table.partitionCount}
+            </p>
+        </div>
+
+        <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <p class="text-sm font-medium text-slate-500">Manifests</p>
+            <p class="mt-2 text-2xl font-semibold text-slate-900">
+                {table.manifestCount}
+            </p>
+            <p class="text-xs text-slate-400">
+                {table.totalManifestSizeFormatted}
+            </p>
+        </div>
+    </div>
+</div>
+{/content} {/include}
