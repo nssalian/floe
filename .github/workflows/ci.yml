@@ -52,6 +52,11 @@ jobs:
       - name: Build + Unit + Integration Tests
         run: ./gradlew ciTest --max-workers=10
 
+      - name: Build artifacts for Docker
+        run: |
+          ./gradlew :floe-server:quarkusBuild -Dquarkus.package.type=fast-jar
+          ./gradlew :floe-spark-job:shadowJar
+
       - name: E2E Tests
         run: |
           docker build -t floe:local -f docker/floe-server/Dockerfile .
