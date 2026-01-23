@@ -34,9 +34,11 @@ public class CatalogClientProducer {
                 case "HIVE" -> createHiveCatalogClient(catalogConfig);
                 case "POLARIS" -> createPolarisCatalogClient(catalogConfig);
                 case "NESSIE" -> createNessieCatalogClient(catalogConfig);
+                case "LAKEKEEPER" -> createLakekeeperCatalogClient(catalogConfig);
+                case "GRAVITINO" -> createGravitinoCatalogClient(catalogConfig);
                 default -> {
                     LOG.error(
-                            "Unsupported catalog type: {}. Supported types: REST, HIVE, POLARIS, NESSIE",
+                            "Unsupported catalog type: {}. Supported types: REST, HIVE, POLARIS, NESSIE, LAKEKEEPER, GRAVITINO",
                             catalogType);
                     yield new StubCatalogClient(catalogName);
                 }
@@ -236,6 +238,123 @@ public class CatalogClientProducer {
                 .bearerToken(token)
                 .additionalProperties(additionalProps)
                 .build();
+    }
+
+    private CatalogClient createLakekeeperCatalogClient(FloeConfig.Catalog catalogConfig) {
+        String catalogName = catalogConfig.name();
+        String warehouse = catalogConfig.warehouse();
+        FloeConfig.Catalog.Lakekeeper lakekeeperConfig = catalogConfig.lakekeeper();
+
+        String uri =
+                lakekeeperConfig
+                        .uri()
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "floe.catalog.lakekeeper.uri is required when catalog type is LAKEKEEPER"));
+
+        Map<String, String> additionalProps = new HashMap<>();
+
+        // Add S3 configuration if endpoint is specified (for non-vended credentials scenarios)
+        FloeConfig.Catalog.S3 s3Config = catalogConfig.s3();
+        s3Config.endpoint()
+                .filter(ep -> !ep.isBlank())
+                .ifPresent(
+                        endpoint -> {
+                            additionalProps.put("io-impl", "org.apache.iceberg.aws.s3.S3FileIO");
+                            additionalProps.put("s3.endpoint", endpoint);
+                            additionalProps.put("s3.access-key-id", s3Config.accessKeyId());
+                            additionalProps.put("s3.secret-access-key", s3Config.secretAccessKey());
+                            additionalProps.put("s3.region", s3Config.region());
+                            additionalProps.put("s3.path-style-access", "true");
+                        });
+
+        LOG.info("Creating Lakekeeper catalog client: uri={}, warehouse={}", uri, warehouse);
+
+        // Build the REST catalog client with OAuth2 if configured
+        var builder =
+                IcebergRestCatalogClient.builder()
+                        .catalogName(catalogName)
+                        .uri(uri)
+                        .warehouse(warehouse)
+                        .additionalProperties(additionalProps);
+
+        // Configure OAuth2 if credentials are provided
+        lakekeeperConfig
+                .credential()
+                .filter(c -> !c.isBlank() && c.contains(":"))
+                .ifPresent(
+                        credential -> {
+                            String[] parts = credential.split(":", 2);
+                            String clientId = parts[0];
+                            String clientSecret = parts[1];
+                            String tokenEndpoint =
+                                    lakekeeperConfig
+                                            .oauth2ServerUri()
+                                            .orElse(uri + "/v1/oauth/tokens");
+                            builder.oauth2(clientId, clientSecret, tokenEndpoint);
+                            lakekeeperConfig.scope().ifPresent(builder::scope);
+                        });
+
+        return builder.build();
+    }
+
+    private CatalogClient createGravitinoCatalogClient(FloeConfig.Catalog catalogConfig) {
+        String catalogName = catalogConfig.name();
+        String warehouse = catalogConfig.warehouse();
+        FloeConfig.Catalog.Gravitino gravitinoConfig = catalogConfig.gravitino();
+
+        String uri =
+                gravitinoConfig
+                        .uri()
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "floe.catalog.gravitino.uri is required when catalog type is GRAVITINO"));
+
+        Map<String, String> additionalProps = new HashMap<>();
+
+        // Add S3 configuration if endpoint is specified
+        FloeConfig.Catalog.S3 s3Config = catalogConfig.s3();
+        s3Config.endpoint()
+                .filter(ep -> !ep.isBlank())
+                .ifPresent(
+                        endpoint -> {
+                            additionalProps.put("io-impl", "org.apache.iceberg.aws.s3.S3FileIO");
+                            additionalProps.put("s3.endpoint", endpoint);
+                            additionalProps.put("s3.access-key-id", s3Config.accessKeyId());
+                            additionalProps.put("s3.secret-access-key", s3Config.secretAccessKey());
+                            additionalProps.put("s3.region", s3Config.region());
+                            additionalProps.put("s3.path-style-access", "true");
+                        });
+
+        LOG.info("Creating Gravitino catalog client: uri={}, warehouse={}", uri, warehouse);
+
+        // Build the REST catalog client with OAuth2 if configured
+        var builder =
+                IcebergRestCatalogClient.builder()
+                        .catalogName(catalogName)
+                        .uri(uri)
+                        .warehouse(warehouse)
+                        .additionalProperties(additionalProps);
+
+        // Configure OAuth2 if credentials are provided
+        gravitinoConfig
+                .credential()
+                .filter(c -> !c.isBlank() && c.contains(":"))
+                .ifPresent(
+                        credential -> {
+                            String[] parts = credential.split(":", 2);
+                            String clientId = parts[0];
+                            String clientSecret = parts[1];
+                            String tokenEndpoint =
+                                    gravitinoConfig
+                                            .oauth2ServerUri()
+                                            .orElse(uri + "/v1/oauth/tokens");
+                            builder.oauth2(clientId, clientSecret, tokenEndpoint);
+                        });
+
+        return builder.build();
     }
 
     /** Stub catalog client when real catalog is unavailable or misconfigured. */

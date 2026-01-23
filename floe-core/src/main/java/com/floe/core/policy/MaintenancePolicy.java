@@ -141,6 +141,7 @@ public record MaintenancePolicy(
         return new Builder();
     }
 
+    /** Builder for MaintenancePolicy. */
     public static class Builder {
 
         private String id = UUID.randomUUID().toString();

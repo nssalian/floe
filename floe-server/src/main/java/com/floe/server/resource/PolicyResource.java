@@ -40,7 +40,12 @@ public class PolicyResource {
 
     @Inject FloeMetrics metrics;
 
-    /** Create a new maintenance policy. */
+    /**
+     * Create a new maintenance policy.
+     *
+     * @param request the policy creation request
+     * @return 201 Created with the new policy, 409 Conflict if name exists, or 400 Bad Request
+     */
     @POST
     @Secured(Permission.WRITE_POLICIES)
     public Response create(@Valid CreatePolicyRequest request) {
@@ -96,7 +101,14 @@ public class PolicyResource {
         }
     }
 
-    /** List all policies with pagination. */
+    /**
+     * List all policies with pagination.
+     *
+     * @param enabledOnly if true, only return enabled policies
+     * @param limit maximum number of policies to return (default 20)
+     * @param offset number of policies to skip for pagination (default 0)
+     * @return 200 OK with paginated list of policies
+     */
     @GET
     @Secured(Permission.READ_POLICIES)
     public Response list(
@@ -153,7 +165,12 @@ public class PolicyResource {
         }
     }
 
-    /** Get a policy by ID. */
+    /**
+     * Get a policy by ID.
+     *
+     * @param id the policy ID
+     * @return 200 OK with the policy, or 404 Not Found
+     */
     @GET
     @Path("/{id}")
     @Secured(Permission.READ_POLICIES)
@@ -171,7 +188,13 @@ public class PolicyResource {
         return Response.ok(PolicyResponse.from(policyOpt.get())).build();
     }
 
-    /** Update a policy. */
+    /**
+     * Update a policy.
+     *
+     * @param id the policy ID
+     * @param request the update request with fields to modify
+     * @return 200 OK with the updated policy, 404 Not Found, or 409 Conflict
+     */
     @PUT
     @Path("/{id}")
     @Secured(Permission.WRITE_POLICIES)
@@ -240,7 +263,12 @@ public class PolicyResource {
         }
     }
 
-    /** Delete a policy. */
+    /**
+     * Delete a policy.
+     *
+     * @param id the policy ID
+     * @return 204 No Content on success, or 404 Not Found
+     */
     @DELETE
     @Path("/{id}")
     @Secured(Permission.DELETE_POLICIES)
@@ -265,7 +293,12 @@ public class PolicyResource {
         }
     }
 
-    /** Validate tables matching a pattern (for UI preview). */
+    /**
+     * Validate tables matching a pattern (for UI preview).
+     *
+     * @param request map containing "pattern" key with the table pattern to validate
+     * @return 200 OK with validation results including matched tables
+     */
     @POST
     @Path("/validate-pattern")
     public Response validatePattern(Map<String, String> request) {

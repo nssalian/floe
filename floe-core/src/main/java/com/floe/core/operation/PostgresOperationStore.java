@@ -547,6 +547,13 @@ public class PostgresOperationStore implements OperationStore {
 
     // ========== Helper Methods ==========
 
+    /**
+     * Execute a query and map results to OperationRecord list.
+     *
+     * @param stmt the prepared statement to execute
+     * @return list of operation records
+     * @throws SQLException if query fails
+     */
     private List<OperationRecord> executeQuery(PreparedStatement stmt) throws SQLException {
         List<OperationRecord> results = new ArrayList<>();
         try (ResultSet rs = stmt.executeQuery()) {
@@ -557,6 +564,13 @@ public class PostgresOperationStore implements OperationStore {
         return results;
     }
 
+    /**
+     * Map a ResultSet row to an OperationRecord.
+     *
+     * @param rs the result set positioned at the row to map
+     * @return the mapped operation record
+     * @throws SQLException if reading fails or JSON parsing fails
+     */
     private OperationRecord mapRowToRecord(ResultSet rs) throws SQLException {
         try {
             UUID id = rs.getObject("id", UUID.class);
@@ -599,6 +613,12 @@ public class PostgresOperationStore implements OperationStore {
         }
     }
 
+    /**
+     * Serialize an object to JSON string.
+     *
+     * @param obj the object to serialize
+     * @return JSON string, or null if obj is null
+     */
     private String toJson(Object obj) {
         if (obj == null) return null;
         try {
@@ -609,6 +629,15 @@ public class PostgresOperationStore implements OperationStore {
         }
     }
 
+    /**
+     * Deserialize a JSON string to an object.
+     *
+     * @param json the JSON string
+     * @param clazz the target class
+     * @param <T> the target type
+     * @return the deserialized object, or null if json is null/blank
+     * @throws JsonProcessingException if parsing fails
+     */
     private <T> T fromJson(String json, Class<T> clazz) throws JsonProcessingException {
         if (json == null || json.isBlank()) return null;
         return objectMapper.readValue(json, clazz);

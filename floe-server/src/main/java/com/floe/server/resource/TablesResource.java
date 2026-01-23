@@ -64,7 +64,14 @@ public class TablesResource {
         }
     }
 
-    /** List all tables in a namespace with pagination. */
+    /**
+     * List all tables in a namespace with pagination.
+     *
+     * @param namespace the namespace to list tables from
+     * @param limit maximum number of tables to return (default 20)
+     * @param offset number of tables to skip for pagination (default 0)
+     * @return 200 OK with paginated list of tables
+     */
     @GET
     @Path("/namespaces/{namespace}")
     @Secured(Permission.READ_TABLES)
@@ -116,7 +123,13 @@ public class TablesResource {
         }
     }
 
-    /** List all tables across all namespaces with pagination. */
+    /**
+     * List all tables across all namespaces with pagination.
+     *
+     * @param limit maximum number of tables to return (default 20)
+     * @param offset number of tables to skip for pagination (default 0)
+     * @return 200 OK with paginated list of all tables
+     */
     @GET
     @Secured(Permission.READ_TABLES)
     public Response listAllTables(
@@ -165,7 +178,13 @@ public class TablesResource {
         }
     }
 
-    /** Get detailed metadata for a specific table. */
+    /**
+     * Get detailed metadata for a specific table.
+     *
+     * @param namespace the namespace containing the table
+     * @param table the table name
+     * @return 200 OK with table metadata, or 404 Not Found
+     */
     @GET
     @Path("/{namespace}/{table}")
     @Secured(Permission.READ_TABLES)
@@ -191,7 +210,13 @@ public class TablesResource {
         }
     }
 
-    /** Check if a table exists. */
+    /**
+     * Check if a table exists.
+     *
+     * @param namespace the namespace containing the table
+     * @param table the table name
+     * @return 200 OK if the table exists, or 404 Not Found
+     */
     @HEAD
     @Path("/{namespace}/{table}")
     @Secured(Permission.READ_TABLES)
@@ -214,7 +239,13 @@ public class TablesResource {
         }
     }
 
-    /** Get health assessment for a table. */
+    /**
+     * Get health assessment for a table.
+     *
+     * @param namespace the namespace containing the table
+     * @param table the table name
+     * @return 200 OK with health report, or 404 Not Found
+     */
     @GET
     @Path("/{namespace}/{table}/health")
     @Secured(Permission.READ_TABLES)

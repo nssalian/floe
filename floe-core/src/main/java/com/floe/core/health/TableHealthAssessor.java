@@ -11,7 +11,12 @@ import org.apache.iceberg.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Assesses the health of an Iceberg table and produces a HealthReport. */
+/**
+ * Assesses the health of an Iceberg table and produces a HealthReport.
+ *
+ * <p>Analyzes snapshot history, file sizes, manifest counts, and other metrics to identify
+ * potential issues that may require maintenance operations.
+ */
 public class TableHealthAssessor {
 
     private static final Logger LOG = LoggerFactory.getLogger(TableHealthAssessor.class);
@@ -26,7 +31,13 @@ public class TableHealthAssessor {
         this.thresholds = thresholds;
     }
 
-    /** Assess the health of a table and produce a report. */
+    /**
+     * Assess the health of a table and produce a report.
+     *
+     * @param tableId the table identifier
+     * @param table the Iceberg table to assess
+     * @return a health report with metrics and identified issues
+     */
     public HealthReport assess(TableIdentifier tableId, Table table) {
         LOG.debug("Assessing health of table {}", tableId);
         Instant now = Instant.now();
@@ -299,8 +310,10 @@ public class TableHealthAssessor {
         return issues;
     }
 
+    /** Snapshot statistics for a table. */
     private record SnapshotMetrics(int count, Instant oldest, Instant newest) {}
 
+    /** File statistics for a table including data files and delete files. */
     private record FileMetrics(
             int dataFileCount,
             long totalDataSizeBytes,
@@ -314,5 +327,6 @@ public class TableHealthAssessor {
             int equalityDeleteFileCount,
             int partitionCount) {}
 
+    /** Manifest statistics for a table. */
     private record ManifestMetrics(int count, long totalSizeBytes) {}
 }

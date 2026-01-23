@@ -30,12 +30,14 @@ Open http://localhost:9091
 
 ## Catalogs
 
-| Catalog                        | Description |
-|--------------------------------|-------------|
-| [REST](catalogs/rest.md)       | Iceberg REST Catalog |
-| [Nessie](catalogs/nessie.md)   | Git-like versioning |
-| [Polaris](catalogs/polaris.md) | Multi-engine access control |
-| [Hive](catalogs/hms.md)        | Hive Metastore |
+| Catalog                              | Description |
+|--------------------------------------|-------------|
+| [REST](catalogs/rest.md)             | Iceberg REST Catalog |
+| [Nessie](catalogs/nessie.md)         | Git-like versioning |
+| [Polaris](catalogs/polaris.md)       | Multi-engine access control |
+| [Hive](catalogs/hms.md)              | Hive Metastore |
+| [Lakekeeper](catalogs/lakekeeper.md) | Open-source Iceberg catalog |
+| [Gravitino](catalogs/gravitino.md)   | Unified metadata lake |
 
 ## Engines
 

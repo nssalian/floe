@@ -12,7 +12,7 @@ It orchestrates maintenance using Iceberg's built-in procedures via Spark or Tri
 
 ## High Level Architecture
 
-<img src="docs/assets/high_level.svg" alt="High Level" width="600">
+<img src="docs/assets/high_level.png" alt="High Level" width="600">
 
 ## Quick Start
 
@@ -28,19 +28,22 @@ Open http://localhost:9091 and explore the API or UI.
 ## Full Example Setups
 
 ```bash
-make example-rest      # Iceberg REST Catalog
-make example-nessie    # Project Nessie
-make example-polaris   # Apache Polaris
-make example-hms       # Hive Metastore
+make example-rest       # Iceberg REST Catalog (Vanilla)
+make example-polaris    # Apache Polaris
+make example-lakekeeper # Lakekeeper
+make example-gravitino  # Gravitino
+make example-hms        # Hive Metastore
+make example-nessie     # Project Nessie
+
 # Swap execution engine by running make example-<catalog>-trino default is Spark
-# Run a `make clean` to stop and remove containers before starting a new example
+# Run a make clean to stop and remove containers before starting a new example
 ```
 
 ## Features
 
 - **Policy-driven** - Define maintenance rules that match tables by glob pattern
 - **Scheduled** - Cron-based scheduling support as well as manual triggering
-- **Multi-catalog** - Iceberg REST, Hive, Nessie, Polaris are currently supported
+- **Multi-catalog** - Iceberg REST Catalogs(Polaris, Lakekeeper, Gravitino), and Hive, Nessie are currently supported
 - **Multi-engine** - Spark (via Livy), Trino
 - **Pluggable** - Swap catalogs, engines, and storage backends
 

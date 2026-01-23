@@ -408,11 +408,38 @@ public class FloeProducers {
                                 .orElse("PRINCIPAL_ROLE:ALL");
                 props.put("scope", scope);
             }
+            case "LAKEKEEPER" -> {
+                // Lakekeeper is an Iceberg REST catalog with OAuth2 and credential vending
+                props.put("type", "rest");
+                var lakekeeper = catalog.lakekeeper();
+                lakekeeper.uri().ifPresent(uri -> props.put("uri", uri));
+                props.put("warehouse", catalog.warehouse());
+                // OAuth2 credentials if configured
+                lakekeeper
+                        .credential()
+                        .filter(c -> !c.isBlank())
+                        .ifPresent(credential -> props.put("credential", credential));
+                lakekeeper.oauth2ServerUri().ifPresent(uri -> props.put("oauth2-server-uri", uri));
+                lakekeeper.scope().ifPresent(scope -> props.put("scope", scope));
+            }
+            case "GRAVITINO" -> {
+                // Gravitino provides an Iceberg REST catalog interface
+                props.put("type", "rest");
+                var gravitino = catalog.gravitino();
+                gravitino.uri().ifPresent(uri -> props.put("uri", uri));
+                props.put("warehouse", catalog.warehouse());
+                // OAuth2 credentials if configured
+                gravitino
+                        .credential()
+                        .filter(c -> !c.isBlank())
+                        .ifPresent(credential -> props.put("credential", credential));
+                gravitino.oauth2ServerUri().ifPresent(uri -> props.put("oauth2-server-uri", uri));
+            }
             default ->
                     throw new IllegalArgumentException(
                             "Unsupported catalog type: "
                                     + catalogType
-                                    + ". Supported: REST, HIVE, HMS, NESSIE, POLARIS");
+                                    + ". Supported: REST, HIVE, HMS, NESSIE, POLARIS, LAKEKEEPER, GRAVITINO");
         }
 
         // Add S3 configuration for all catalog types that need it

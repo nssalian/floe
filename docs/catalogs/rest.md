@@ -1,6 +1,6 @@
 # REST Catalog
 
-The Iceberg REST Catalog provides a standard HTTP interface for catalog operations.
+The Standard Iceberg REST Catalog provides a standard HTTP interface for catalog operations.
 
 ## Quick Start
 

@@ -3,7 +3,7 @@
 Create demo Iceberg tables for Floe testing.
 Configures Spark based on CATALOG_TYPE environment variable.
 
-Supported catalog types: rest, nessie, polaris, hive, polaris
+Supported catalog types: rest, nessie, polaris, hive, lakekeeper, gravitino
 """
 
 from pyspark.sql import SparkSession
@@ -68,6 +68,20 @@ elif CATALOG_TYPE == "hive":
     builder = builder \
         .config(f"spark.sql.catalog.{CATALOG_NAME}.type", "hive") \
         .config(f"spark.sql.catalog.{CATALOG_NAME}.uri", HMS_URI)
+
+elif CATALOG_TYPE == "lakekeeper":
+    # Lakekeeper is a standard Iceberg REST catalog
+    # URI should be http://lakekeeper:8181/catalog/<warehouse-name>
+    builder = builder \
+        .config(f"spark.sql.catalog.{CATALOG_NAME}.type", "rest") \
+        .config(f"spark.sql.catalog.{CATALOG_NAME}.uri", CATALOG_URI)
+
+elif CATALOG_TYPE == "gravitino":
+    # Gravitino provides an Iceberg REST catalog interface
+    # URI should be http://gravitino:9001/iceberg/<metalake>
+    builder = builder \
+        .config(f"spark.sql.catalog.{CATALOG_NAME}.type", "rest") \
+        .config(f"spark.sql.catalog.{CATALOG_NAME}.uri", CATALOG_URI)
 
 else:
     print(f"Unknown catalog type: {CATALOG_TYPE}, defaulting to REST")

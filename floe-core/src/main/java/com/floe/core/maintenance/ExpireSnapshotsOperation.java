@@ -55,6 +55,7 @@ public record ExpireSnapshotsOperation(
         return new Builder();
     }
 
+    /** Builder for ExpireSnapshotsOperation. */
     public static class Builder {
 
         private int retainLast = 5;

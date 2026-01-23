@@ -50,7 +50,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v5
 
       - name: Build + Unit + Integration Tests
-        run: ./gradlew ciTest
+        run: ./gradlew ciTest --max-workers=10
 
       - name: Build artifacts for Docker
         run: |

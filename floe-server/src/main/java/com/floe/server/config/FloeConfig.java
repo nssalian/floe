@@ -150,6 +150,58 @@ public interface FloeConfig {
             /** Bearer token for authentication (optional, can use Floe's OIDC token) */
             Optional<String> token();
         }
+
+        /**
+         * Lakekeeper configuration. Lakekeeper is an Iceberg REST Catalog that supports OAuth2
+         * client credentials and credential vending for S3/GCS/ADLS.
+         */
+        Lakekeeper lakekeeper();
+
+        interface Lakekeeper {
+            /** Lakekeeper catalog URI (e.g., https://lakekeeper.example.com/catalog) */
+            Optional<String> uri();
+
+            /** OAuth2 credential in format clientId:clientSecret */
+            Optional<String> credential();
+
+            /** OAuth2 token endpoint URI (e.g., https://idp.example.com/oauth/token) */
+            Optional<String> oauth2ServerUri();
+
+            /** OAuth2 scope (optional) */
+            Optional<String> scope();
+
+            /** Enable nested namespace support. Defaults to true. */
+            @WithDefault("true")
+            boolean nestedNamespaceEnabled();
+
+            /** Enable credential vending for storage access. Defaults to true. */
+            @WithDefault("true")
+            boolean vendedCredentialsEnabled();
+        }
+
+        /**
+         * Apache Gravitino configuration. Gravitino is a federated metadata lake that provides an
+         * Iceberg REST Catalog interface with credential vending support.
+         */
+        Gravitino gravitino();
+
+        interface Gravitino {
+            /** Gravitino Iceberg REST endpoint (e.g., http://gravitino:9001/iceberg/) */
+            Optional<String> uri();
+
+            /** Metalake name */
+            Optional<String> metalake();
+
+            /** OAuth2 credential in format clientId:clientSecret (optional) */
+            Optional<String> credential();
+
+            /** OAuth2 token endpoint URI (optional) */
+            Optional<String> oauth2ServerUri();
+
+            /** Enable credential vending for storage access. Defaults to true. */
+            @WithDefault("true")
+            boolean vendedCredentialsEnabled();
+        }
     }
 
     interface Store {

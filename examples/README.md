@@ -7,12 +7,14 @@ These are only intended for illustration, development and testing purposes and n
 
 ## Catalog Options
 
-| Catalog | Description | Best For |
-|---------|-------------|----------|
-| [rest-catalog](./rest-catalog/) | Apache Iceberg REST Catalog | Local development, testing |
+| Catalog | Description | Best For                             |
+|---------|-------------|--------------------------------------|
+| [rest-catalog](./rest-catalog/) | Apache Iceberg REST Catalog | Local development, testing           |
 | [nessie](./nessie/) | Project Nessie (Git-like versioning) | Version control, branching workflows |
-| [polaris](./polaris/) | Apache Polaris (Snowflake Open Catalog) | Multi-engine access control |
-| [hive-metastore](hms/) | Hive Metastore Service | Legacy Hive compatibility |
+| [polaris](./polaris/) | Apache Polaris (Snowflake Open Catalog) | Multi-engine access control          |
+| [hive-metastore](hms/) | Hive Metastore Service | Legacy Hive compatibility            |
+| [lakekeeper](./lakekeeper/) | Lakekeeper | IRC compatibile open source catalog  |
+| [gravitino](./gravitino/) | Apache Gravitino | Federated metadata lake              |
 
 ## Prerequisites
 
@@ -23,7 +25,7 @@ These are only intended for illustration, development and testing purposes and n
 
 All examples share the same architecture:
 
-![Architecture Diagram](../docs/assets/examples_architecture.svg)
+![Architecture Diagram](../docs/assets/examples_architecture.png)
 
 ## Running examples
 
@@ -52,15 +54,19 @@ To skip demo setup:
    make example-nessie       # Project Nessie + Spark
    make example-polaris      # Apache Polaris + Spark
    make example-hms          # Hive Metastore + Spark
+   make example-lakekeeper   # Lakekeeper + Spark
+   make example-gravitino    # Gravitino + Spark
    ```
 
    **Trino engine:**
    ```bash
    # Uses pre-built Floe images from GitHub Container Registry
-   make example-rest-trino    # REST Catalog + Trino
-   make example-nessie-trino  # Project Nessie + Trino
-   make example-polaris-trino # Apache Polaris + Trino
-   make example-hms-trino     # Hive Metastore + Trino
+   make example-rest-trino       # REST Catalog + Trino
+   make example-nessie-trino     # Project Nessie + Trino
+   make example-polaris-trino    # Apache Polaris + Trino
+   make example-hms-trino        # Hive Metastore + Trino
+   make example-lakekeeper-trino # Lakekeeper + Trino
+   make example-gravitino-trino  # Gravitino + Trino
    ```
 
    **Local builds: (if you'd like to make changes)**
@@ -95,7 +101,6 @@ To skip demo setup:
 4. When done:
    ```bash
    make clean
-   ```
 
 5. (Optional) Add your own tables or more data, by editing [`scripts/setup-demo-tables.py`](../scripts/setup-demo-tables.py) and re-running on the Spark container. The data is intentionally 
 minimal for demo purposes.

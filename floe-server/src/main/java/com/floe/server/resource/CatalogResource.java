@@ -30,7 +30,11 @@ public class CatalogResource {
 
     @Inject CatalogConfigStore catalogConfigStore;
 
-    /** Get the currently active catalog configuration. */
+    /**
+     * Get the currently active catalog configuration.
+     *
+     * @return 200 OK with the active catalog config (excluding credentials), or 404 Not Found
+     */
     @GET
     @Secured(Permission.READ_TABLES)
     public Response getActiveCatalog() {

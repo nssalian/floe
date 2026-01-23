@@ -56,6 +56,16 @@ public class SchedulerService {
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicInteger executionCount = new AtomicInteger(0);
 
+    /**
+     * Create a new SchedulerService.
+     *
+     * @param policyStore store for maintenance policies
+     * @param catalogClient client for accessing the Iceberg catalog
+     * @param orchestrator orchestrator for executing maintenance operations
+     * @param executionStore store for tracking schedule executions
+     * @param distributedLock lock for coordinating across replicas
+     * @param config scheduler configuration
+     */
     @Inject
     public SchedulerService(
             PolicyStore policyStore,
@@ -183,6 +193,12 @@ public class SchedulerService {
 
     /**
      * Process a single operation for a policy, finding matching tables and triggering maintenance.
+     *
+     * @param policy the maintenance policy
+     * @param opType the operation type to process
+     * @param schedule the schedule configuration
+     * @param now current time
+     * @return number of tables triggered
      */
     private int processOperation(
             MaintenancePolicy policy, OperationType opType, ScheduleConfig schedule, Instant now) {
@@ -214,7 +230,16 @@ public class SchedulerService {
         return triggered;
     }
 
-    /** Check if an operation is due for execution. */
+    /**
+     * Check if an operation is due for execution.
+     *
+     * @param policyId the policy ID
+     * @param opType the operation type name
+     * @param tableKey the fully qualified table key
+     * @param schedule the schedule configuration
+     * @param now current time
+     * @return true if the operation is due, false otherwise
+     */
     private boolean isOperationDue(
             String policyId, String opType, String tableKey, ScheduleConfig schedule, Instant now) {
         return executionStore
@@ -223,7 +248,18 @@ public class SchedulerService {
                 .orElse(true); // Never run = due immediately
     }
 
-    /** Trigger maintenance for a table and record the execution. */
+    /**
+     * Trigger maintenance for a table and record the execution.
+     *
+     * @param policy the maintenance policy
+     * @param opType the operation type
+     * @param catalogName the catalog name
+     * @param table the table identifier
+     * @param tableKey the fully qualified table key
+     * @param schedule the schedule configuration
+     * @param now current time
+     * @return true if maintenance was triggered successfully, false on error
+     */
     private boolean triggerMaintenance(
             MaintenancePolicy policy,
             OperationType opType,
@@ -261,7 +297,13 @@ public class SchedulerService {
         }
     }
 
-    /** Calculate the next run time based on the schedule configuration. */
+    /**
+     * Calculate the next run time based on the schedule configuration.
+     *
+     * @param schedule the schedule configuration (interval or cron)
+     * @param fromTime the time to calculate from
+     * @return the next scheduled run time
+     */
     Instant calculateNextRun(ScheduleConfig schedule, Instant fromTime) {
         // Use interval if specified
         if (schedule.intervalInDays() != null) {
@@ -288,7 +330,13 @@ public class SchedulerService {
         return fromTime.plus(Duration.ofDays(1));
     }
 
-    /** Build a fully qualified table key. */
+    /**
+     * Build a fully qualified table key.
+     *
+     * @param catalog the catalog name
+     * @param table the table identifier
+     * @return the key in format "catalog.namespace.table"
+     */
     private String buildTableKey(String catalog, TableIdentifier table) {
         return catalog + "." + table.namespace() + "." + table.table();
     }

@@ -31,6 +31,11 @@ public class OperationsResource {
      *
      * <p>GET /api/v1/operations GET /api/v1/operations?limit=50&offset=0 GET
      * /api/v1/operations?status=FAILED&limit=20
+     *
+     * @param limit maximum number of operations to return (default 20)
+     * @param offset number of operations to skip for pagination (default 0)
+     * @param status optional status filter (PENDING, RUNNING, COMPLETED, FAILED)
+     * @return 200 OK with paginated list of operations
      */
     @GET
     @Secured(Permission.READ_OPERATIONS)
@@ -96,6 +101,9 @@ public class OperationsResource {
      * Get operation by ID.
      *
      * <p>GET /api/v1/operations/{id}
+     *
+     * @param id the operation UUID
+     * @return 200 OK with the operation, 400 Bad Request for invalid UUID, or 404 Not Found
      */
     @GET
     @Path("/{id}")
@@ -129,6 +137,9 @@ public class OperationsResource {
      *
      * <p>GET /api/v1/operations/stats GET /api/v1/operations/stats?window=24h GET
      * /api/v1/operations/stats?window=7d
+     *
+     * @param window time window for statistics (e.g., "24h", "7d", "1h")
+     * @return 200 OK with aggregated statistics, or 400 Bad Request for invalid window format
      */
     @GET
     @Path("/stats")
@@ -160,6 +171,10 @@ public class OperationsResource {
      * Get currently running operations.
      *
      * <p>GET /api/v1/operations/running
+     *
+     * @param limit maximum number of operations to return (default 50)
+     * @param offset number of operations to skip for pagination (default 0)
+     * @return 200 OK with paginated list of running operations
      */
     @GET
     @Path("/running")
@@ -200,6 +215,12 @@ public class OperationsResource {
      * Get operations for a specific table.
      *
      * <p>GET /api/v1/operations/table/{catalog}/{namespace}/{table}
+     *
+     * @param catalog the catalog name
+     * @param namespace the namespace name
+     * @param table the table name
+     * @param limit maximum number of operations to return (default 20)
+     * @return 200 OK with list of operations for the table
      */
     @GET
     @Path("/table/{catalog}/{namespace}/{table}")
@@ -247,6 +268,12 @@ public class OperationsResource {
 
     // Helper methods
 
+    /**
+     * Parse a status string to OperationStatus enum.
+     *
+     * @param status the status string to parse
+     * @return the OperationStatus, or null if invalid
+     */
     private OperationStatus parseStatus(String status) {
         try {
             return OperationStatus.valueOf(status.toUpperCase(Locale.ROOT));
@@ -255,6 +282,12 @@ public class OperationsResource {
         }
     }
 
+    /**
+     * Parse a time window string to Duration.
+     *
+     * @param window the window string (e.g., "24h", "7d", "30m")
+     * @return the Duration, or null if invalid format
+     */
     private Duration parseWindow(String window) {
         if (window == null || window.isBlank()) {
             return Duration.ofHours(24);

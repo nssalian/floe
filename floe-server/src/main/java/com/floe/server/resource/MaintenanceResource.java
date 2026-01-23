@@ -55,6 +55,10 @@ public class MaintenanceResource {
      *   "policyName": "events-compaction"
      * }
      * </pre>
+     *
+     * @param request the trigger request containing catalog, namespace, table, and optional policy
+     * @return 200 OK on success, 202 Accepted if running async, 404 if no matching policy, or 500
+     *     on failure
      */
     @POST
     @Path("/trigger")

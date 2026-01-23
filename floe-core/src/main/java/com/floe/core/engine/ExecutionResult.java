@@ -65,7 +65,17 @@ public record ExecutionResult(
         return executionId;
     }
 
-    /** Create a successful result. */
+    /**
+     * Create a successful result.
+     *
+     * @param executionId unique execution identifier
+     * @param table target table
+     * @param operationType type of operation executed
+     * @param startTime when execution started
+     * @param endTime when execution ended
+     * @param metrics operation metrics
+     * @return a successful execution result
+     */
     public static ExecutionResult success(
             String executionId,
             TableIdentifier table,
@@ -85,7 +95,18 @@ public record ExecutionResult(
                 Optional.empty());
     }
 
-    /** Create a failed result. */
+    /**
+     * Create a failed result.
+     *
+     * @param executionId unique execution identifier
+     * @param table target table
+     * @param operationType type of operation executed
+     * @param startTime when execution started
+     * @param endTime when execution ended
+     * @param errorMessage error message describing the failure
+     * @param errorStackTrace stack trace of the error
+     * @return a failed execution result
+     */
     public static ExecutionResult failure(
             String executionId,
             TableIdentifier table,
@@ -106,7 +127,16 @@ public record ExecutionResult(
                 Optional.of(errorStackTrace));
     }
 
-    /** Create a cancelled result. */
+    /**
+     * Create a cancelled result.
+     *
+     * @param executionId unique execution identifier
+     * @param table target table
+     * @param operationType type of operation executed
+     * @param startTime when execution started
+     * @param endTime when execution ended
+     * @return a cancelled execution result
+     */
     public static ExecutionResult cancelled(
             String executionId,
             TableIdentifier table,
@@ -125,7 +155,16 @@ public record ExecutionResult(
                 Optional.empty());
     }
 
-    /** Create a skipped result (operation not supported for this catalog/engine). */
+    /**
+     * Create a skipped result (operation not supported for this catalog/engine).
+     *
+     * @param executionId unique execution identifier
+     * @param table target table
+     * @param operationType type of operation executed
+     * @param time the time of the skip
+     * @param reason reason the operation was skipped
+     * @return a skipped execution result
+     */
     public static ExecutionResult skipped(
             String executionId,
             TableIdentifier table,
