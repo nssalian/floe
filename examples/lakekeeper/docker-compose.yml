@@ -1,0 +1,263 @@
+# Floe with Lakekeeper
+#
+# Lakekeeper is a fast, secure Apache Iceberg REST Catalog written in Rust:
+# - Full Iceberg REST Catalog specification compliance
+# - OAuth2 authentication with OpenID Connect
+# - Credential vending for S3/GCS/ADLS
+# - Fine-grained access control via OpenFGA
+#
+# Services:
+#   - Floe server (http://localhost:9091)
+#   - Lakekeeper catalog server
+#   - MinIO (S3-compatible storage)
+#   - Postgres (Floe + Lakekeeper persistence)
+#   - Livy (Spark job submission)
+#   - Trino (optional, --profile trino)
+#
+# Access:
+#   - Floe UI: http://localhost:9091
+#   - Lakekeeper API: http://localhost:8181
+#   - MinIO Console: http://localhost:9001 (admin/password)
+
+services:
+  # S3-compatible storage
+  minio:
+    image: minio/minio:latest
+    container_name: lakekeeper-minio
+    ports:
+      - "19000:9000"
+      - "19001:9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Create S3 bucket
+  mc:
+    image: minio/mc:latest
+    container_name: lakekeeper-mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set minio http://minio:9000 admin password;
+      mc mb minio/warehouse --ignore-existing;
+      mc anonymous set download minio/warehouse;
+      exit 0;
+      "
+
+  # Postgres for Lakekeeper and Floe state
+  postgres:
+    image: postgres:16-alpine
+    container_name: lakekeeper-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../../docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-floe-init.sql
+      - ./init-lakekeeper.sql:/docker-entrypoint-initdb.d/02-lakekeeper-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Lakekeeper - Database migration
+  lakekeeper-migrate:
+    image: quay.io/lakekeeper/catalog:latest
+    container_name: lakekeeper-migrate
+    command: ["migrate"]
+    environment:
+      LAKEKEEPER__PG_ENCRYPTION_KEY: "This-is-NOT-Secure!"
+      LAKEKEEPER__PG_DATABASE_URL_READ: postgresql://lakekeeper:lakekeeper@postgres:5432/lakekeeper
+      LAKEKEEPER__PG_DATABASE_URL_WRITE: postgresql://lakekeeper:lakekeeper@postgres:5432/lakekeeper
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Lakekeeper - Iceberg REST Catalog
+  lakekeeper:
+    image: quay.io/lakekeeper/catalog:latest
+    container_name: lakekeeper-server
+    command: ["serve"]
+    ports:
+      - "8181:8181"
+    environment:
+      LAKEKEEPER__PG_ENCRYPTION_KEY: "This-is-NOT-Secure!"
+      LAKEKEEPER__PG_DATABASE_URL_READ: postgresql://lakekeeper:lakekeeper@postgres:5432/lakekeeper
+      LAKEKEEPER__PG_DATABASE_URL_WRITE: postgresql://lakekeeper:lakekeeper@postgres:5432/lakekeeper
+    depends_on:
+      lakekeeper-migrate:
+        condition: service_completed_successfully
+      mc:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/home/nonroot/lakekeeper", "healthcheck"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 5s
+
+  # Bootstrap Lakekeeper (accept terms of use)
+  lakekeeper-bootstrap:
+    image: curlimages/curl:latest
+    container_name: lakekeeper-bootstrap
+    depends_on:
+      lakekeeper:
+        condition: service_healthy
+    command:
+      - "-X"
+      - "POST"
+      - "http://lakekeeper:8181/management/v1/bootstrap"
+      - "-H"
+      - "Content-Type: application/json"
+      - "--data"
+      - '{"accept-terms-of-use": true}'
+      - "-f"
+
+  # Initialize Lakekeeper warehouse
+  lakekeeper-init:
+    image: curlimages/curl:latest
+    container_name: lakekeeper-init
+    depends_on:
+      lakekeeper-bootstrap:
+        condition: service_completed_successfully
+    volumes:
+      - ./create-warehouse.json:/home/curl_user/create-warehouse.json:ro
+    command:
+      - "-X"
+      - "POST"
+      - "http://lakekeeper:8181/management/v1/warehouse"
+      - "-H"
+      - "Content-Type: application/json"
+      - "--data"
+      - "@/home/curl_user/create-warehouse.json"
+      - "-f"
+
+  # Floe Server
+  floe:
+    image: ${FLOE_IMAGE}
+    container_name: lakekeeper-floe
+    ports:
+      - "9091:9091"
+    environment:
+      QUARKUS_HTTP_PORT: 9091
+      # Store
+      FLOE_STORE_TYPE: POSTGRES
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/floe
+      QUARKUS_DATASOURCE_USERNAME: floe
+      QUARKUS_DATASOURCE_PASSWORD: floe
+      # Catalog - Lakekeeper
+      FLOE_CATALOG_TYPE: LAKEKEEPER
+      FLOE_CATALOG_NAME: demo
+      FLOE_CATALOG_LAKEKEEPER_URI: http://lakekeeper:8181/catalog
+      FLOE_CATALOG_WAREHOUSE: demo
+      # S3
+      FLOE_CATALOG_S3_ENDPOINT: http://minio:9000
+      FLOE_CATALOG_S3_ACCESS_KEY_ID: admin
+      FLOE_CATALOG_S3_SECRET_ACCESS_KEY: password
+      FLOE_CATALOG_S3_REGION: us-east-1
+      # AWS SDK needs these env vars for S3FileIO
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+      # Engine
+      FLOE_ENGINE_TYPE: ${FLOE_ENGINE_TYPE:-SPARK}
+      FLOE_LIVY_URL: http://livy:8998
+      FLOE_TRINO_JDBC_URL: jdbc:trino://trino:8080
+      # Auth disabled for local dev
+      FLOE_AUTH_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      lakekeeper-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9091/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Livy - Spark job submission
+  livy:
+    image: ${FLOE_LIVY_IMAGE}
+    container_name: lakekeeper-livy
+    ports:
+      - "8998:8998"
+    environment:
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+      AWS_REGION: us-east-1
+    depends_on:
+      lakekeeper-init:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+
+  # Trino (optional)
+  trino:
+    image: trinodb/trino:479
+    container_name: lakekeeper-trino
+    profiles: ["trino"]
+    ports:
+      - "8085:8080"
+    environment:
+      CATALOG_NAME: demo
+      CATALOG_TYPE: rest
+      CATALOG_URI: http://lakekeeper:8181/catalog
+      CATALOG_WAREHOUSE: demo
+      S3_ENDPOINT: http://minio:9000
+      S3_PATH_STYLE: "true"
+      S3_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+    volumes:
+      - ../../docker/trino/config.properties:/etc/trino/config.properties:ro
+      - ../../docker/trino/jvm.config:/etc/trino/jvm.config:ro
+      - ../../docker/trino/node.properties:/etc/trino/node.properties:ro
+      - ../../docker/trino/entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - ../../docker/trino/catalog/iceberg.properties.template:/etc/trino/catalog/iceberg.properties.template:ro
+    entrypoint: ["/usr/local/bin/entrypoint.sh"]
+    depends_on:
+      lakekeeper-init:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+
+  # Spark (for creating test tables)
+  spark:
+    image: tabulario/spark-iceberg:latest
+    container_name: lakekeeper-spark
+    profiles: ["spark"]
+    ports:
+      - "8888:8888"
+      - "4040:4040"
+    environment:
+      # Catalog config for setup-demo-tables.py
+      CATALOG_TYPE: lakekeeper
+      CATALOG_NAME: demo
+      CATALOG_URI: http://lakekeeper:8181/catalog
+      CATALOG_WAREHOUSE: demo
+      S3_ENDPOINT: http://minio:9000
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+      AWS_REGION: us-east-1
+    depends_on:
+      lakekeeper-init:
+        condition: service_completed_successfully
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: floe-lakekeeper
