@@ -150,6 +150,7 @@ public record RewriteDataFilesOperation(
         return new Builder();
     }
 
+    /** Builder for RewriteDataFilesOperation. */
     public static class Builder {
 
         private RewriteStrategy strategy = RewriteStrategy.BINPACK;

@@ -29,7 +29,12 @@ public class AuthResource {
 
     @Context SecurityContext securityContext;
 
-    /** Create a new API key. */
+    /**
+     * Create a new API key.
+     *
+     * @param request the API key creation request
+     * @return 201 Created with the new API key (plaintext key only shown once), or 409 Conflict
+     */
     @POST
     @Secured(Permission.MANAGE_API_KEYS)
     public Response create(@Valid ApiKeyRequest request) {
@@ -87,7 +92,12 @@ public class AuthResource {
         }
     }
 
-    /** List all API keys. */
+    /**
+     * List all API keys.
+     *
+     * @param enabledOnly if true, only return enabled API keys
+     * @return 200 OK with list of API keys (without plaintext key values)
+     */
     @GET
     @Secured(Permission.MANAGE_API_KEYS)
     public Response list(@QueryParam("enabled") Boolean enabledOnly) {
@@ -110,7 +120,12 @@ public class AuthResource {
         }
     }
 
-    /** Get an API key by ID. */
+    /**
+     * Get an API key by ID.
+     *
+     * @param id the API key ID
+     * @return 200 OK with the API key details, or 404 Not Found
+     */
     @GET
     @Path("/{id}")
     @Secured(Permission.MANAGE_API_KEYS)
@@ -128,7 +143,13 @@ public class AuthResource {
         return Response.ok(ApiKeyResponse.from(keyOpt.get())).build();
     }
 
-    /** Update an API key. */
+    /**
+     * Update an API key.
+     *
+     * @param id the API key ID
+     * @param request the update request with fields to modify
+     * @return 200 OK with the updated API key, 404 Not Found, or 409 Conflict
+     */
     @PUT
     @Path("/{id}")
     @Secured(Permission.MANAGE_API_KEYS)
@@ -187,7 +208,12 @@ public class AuthResource {
         }
     }
 
-    /** Delete (revoke) an API key. */
+    /**
+     * Delete (revoke) an API key.
+     *
+     * @param id the API key ID
+     * @return 204 No Content on success, 400 Bad Request if deleting own key, or 404 Not Found
+     */
     @DELETE
     @Path("/{id}")
     @Secured(Permission.MANAGE_API_KEYS)
@@ -219,7 +245,11 @@ public class AuthResource {
         }
     }
 
-    /** Get information about the current API key (who am I). */
+    /**
+     * Get information about the current API key (who am I).
+     *
+     * @return 200 OK with the current user's API key or principal info, or 401 Unauthorized
+     */
     @GET
     @Path("/me")
     @Secured(Permission.READ_POLICIES) // Any authenticated user can access

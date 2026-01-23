@@ -56,6 +56,14 @@ public class MaintenanceOrchestrator {
     private final OperationStore operationStore;
     private final ExecutorService executorService;
 
+    /**
+     * Create a new MaintenanceOrchestrator with a default thread pool.
+     *
+     * @param policyStore the store for maintenance policies
+     * @param policyMatcher the matcher for finding applicable policies
+     * @param executionEngine the engine for executing maintenance operations
+     * @param operationStore the store for operation history
+     */
     public MaintenanceOrchestrator(
             PolicyStore policyStore,
             PolicyMatcher policyMatcher,
@@ -75,6 +83,15 @@ public class MaintenanceOrchestrator {
                         });
     }
 
+    /**
+     * Create a new MaintenanceOrchestrator with a custom executor service.
+     *
+     * @param policyStore the store for maintenance policies
+     * @param policyMatcher the matcher for finding applicable policies
+     * @param executionEngine the engine for executing maintenance operations
+     * @param operationStore the store for operation history
+     * @param executorService the executor service for running operations
+     */
     public MaintenanceOrchestrator(
             PolicyStore policyStore,
             PolicyMatcher policyMatcher,
@@ -273,7 +290,13 @@ public class MaintenanceOrchestrator {
         }
     }
 
-    /** Execute a list of operations sequentially, stopping on failure. */
+    /**
+     * Execute a list of operations sequentially, stopping on failure.
+     *
+     * @param table the table to run operations on
+     * @param operations the list of operations to execute
+     * @return list of operation results
+     */
     private List<OperationResult> executeOperations(
             TableIdentifier table, List<OperationToRun> operations) {
         List<OperationResult> results = new ArrayList<>();
@@ -305,7 +328,12 @@ public class MaintenanceOrchestrator {
         return results;
     }
 
-    /** Persist the orchestration result to the operation store. */
+    /**
+     * Persist the orchestration result to the operation store.
+     *
+     * @param recordId the operation record ID
+     * @param result the orchestration result to persist
+     */
     private void persistResult(UUID recordId, OrchestratorResult result) {
         OperationStatus status = OperationStatus.fromOrchestratorStatus(result.status());
         OperationResults results = OperationResults.from(result.operationResults());
@@ -320,7 +348,13 @@ public class MaintenanceOrchestrator {
         executorService.shutdown();
     }
 
-    /** Build maintenance operations from policy based on filter. */
+    /**
+     * Build maintenance operations from policy based on filter.
+     *
+     * @param policy the maintenance policy
+     * @param filter the set of operation types to include
+     * @return list of operations to run
+     */
     private List<OperationToRun> buildOperations(
             MaintenancePolicy policy, Set<MaintenanceOperation.Type> filter) {
         List<OperationToRun> operations = new ArrayList<>();
@@ -461,6 +495,13 @@ public class MaintenanceOrchestrator {
         return builder.build();
     }
 
+    /**
+     * Execute a single maintenance operation on a table.
+     *
+     * @param table the table to run the operation on
+     * @param opToRun the operation to execute
+     * @return the operation result
+     */
     private OperationResult executeOperation(TableIdentifier table, OperationToRun opToRun) {
         Instant opStartTime = Instant.now();
         String executionId = UUID.randomUUID().toString();

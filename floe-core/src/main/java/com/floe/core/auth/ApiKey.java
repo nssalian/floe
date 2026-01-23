@@ -70,6 +70,7 @@ public record ApiKey(
         return new Builder();
     }
 
+    /** Builder for ApiKey. */
     public static class Builder {
 
         private String id = UUID.randomUUID().toString();

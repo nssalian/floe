@@ -120,6 +120,13 @@ public abstract class AbstractIcebergCatalogClient implements CatalogClient {
         return loadTable(identifier).map(table -> buildMetadata(identifier, table));
     }
 
+    /**
+     * Build metadata for a table by scanning its current state.
+     *
+     * @param identifier the table identifier
+     * @param table the Iceberg table
+     * @return metadata including snapshot counts, file sizes, and partition info
+     */
     protected TableMetadata buildMetadata(TableIdentifier identifier, Table table) {
         Snapshot currentSnapshot = table.currentSnapshot();
 

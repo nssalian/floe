@@ -34,6 +34,8 @@ class CatalogClientProducerTest {
     private FloeConfig.Catalog.Hive hiveConfig;
     private FloeConfig.Catalog.Polaris polarisConfig;
     private FloeConfig.Catalog.Nessie nessieConfig;
+    private FloeConfig.Catalog.Lakekeeper lakekeeperConfig;
+    private FloeConfig.Catalog.Gravitino gravitinoConfig;
     private CatalogClient createdClient;
 
     @BeforeEach
@@ -45,12 +47,16 @@ class CatalogClientProducerTest {
         hiveConfig = mock(FloeConfig.Catalog.Hive.class);
         polarisConfig = mock(FloeConfig.Catalog.Polaris.class);
         nessieConfig = mock(FloeConfig.Catalog.Nessie.class);
+        lakekeeperConfig = mock(FloeConfig.Catalog.Lakekeeper.class);
+        gravitinoConfig = mock(FloeConfig.Catalog.Gravitino.class);
 
         when(config.catalog()).thenReturn(catalogConfig);
         when(catalogConfig.s3()).thenReturn(s3Config);
         when(catalogConfig.hive()).thenReturn(hiveConfig);
         when(catalogConfig.polaris()).thenReturn(polarisConfig);
         when(catalogConfig.nessie()).thenReturn(nessieConfig);
+        when(catalogConfig.lakekeeper()).thenReturn(lakekeeperConfig);
+        when(catalogConfig.gravitino()).thenReturn(gravitinoConfig);
 
         // Default S3 config (no endpoint)
         when(s3Config.endpoint()).thenReturn(Optional.empty());
@@ -286,6 +292,236 @@ class CatalogClientProducerTest {
             when(nessieConfig.uri()).thenReturn(Optional.empty());
             when(nessieConfig.ref()).thenReturn("main");
             when(nessieConfig.token()).thenReturn(Optional.empty());
+
+            CatalogClient client = createAndTrackClient();
+
+            assertThat(client).isNotNull();
+            assertThat(client.isHealthy()).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("Lakekeeper catalog")
+    class LakekeeperCatalogTests {
+
+        @BeforeEach
+        void setUp() {
+            when(catalogConfig.type()).thenReturn("LAKEKEEPER");
+            when(catalogConfig.name()).thenReturn("lakekeeper-catalog");
+            when(catalogConfig.warehouse()).thenReturn("s3://warehouse/");
+        }
+
+        @Test
+        @DisplayName("creates Lakekeeper catalog client with basic config")
+        void createsLakekeeperCatalogClient() {
+            when(lakekeeperConfig.uri())
+                    .thenReturn(Optional.of("https://lakekeeper.example.com/catalog"));
+            when(lakekeeperConfig.credential()).thenReturn(Optional.empty());
+            when(lakekeeperConfig.oauth2ServerUri()).thenReturn(Optional.empty());
+            when(lakekeeperConfig.scope()).thenReturn(Optional.empty());
+            when(lakekeeperConfig.nestedNamespaceEnabled()).thenReturn(true);
+            when(lakekeeperConfig.vendedCredentialsEnabled()).thenReturn(true);
+
+            CatalogClient client = createAndTrackClient();
+
+            assertThat(client).isNotNull();
+            assertThat(client.getCatalogName()).isEqualTo("lakekeeper-catalog");
+        }
+
+        @Test
+        @DisplayName("creates Lakekeeper catalog client with OAuth2 credentials")
+        void createsLakekeeperCatalogClientWithOAuth2() {
+            when(lakekeeperConfig.uri())
+                    .thenReturn(Optional.of("https://lakekeeper.example.com/catalog"));
+            when(lakekeeperConfig.credential()).thenReturn(Optional.of("client-id:client-secret"));
+            when(lakekeeperConfig.oauth2ServerUri())
+                    .thenReturn(Optional.of("https://idp.example.com/oauth/token"));
+            when(lakekeeperConfig.scope()).thenReturn(Optional.of("catalog:read catalog:write"));
+            when(lakekeeperConfig.nestedNamespaceEnabled()).thenReturn(true);
+            when(lakekeeperConfig.vendedCredentialsEnabled()).thenReturn(true);
+
+            CatalogClient client = createAndTrackClient();
+
+            assertThat(client).isNotNull();
+            assertThat(client.getCatalogName()).isEqualTo("lakekeeper-catalog");
+        }
+
+        @Test
+        @DisplayName("creates Lakekeeper catalog client with S3 endpoint")
+        void createsLakekeeperCatalogClientWithS3Endpoint() {
+            when(lakekeeperConfig.uri())
+                    .thenReturn(Optional.of("https://lakekeeper.example.com/catalog"));
+            when(lakekeeperConfig.credential()).thenReturn(Optional.empty());
+            when(lakekeeperConfig.oauth2ServerUri()).thenReturn(Optional.empty());
+            when(lakekeeperConfig.scope()).thenReturn(Optional.empty());
+            when(lakekeeperConfig.nestedNamespaceEnabled()).thenReturn(true);
+            when(lakekeeperConfig.vendedCredentialsEnabled()).thenReturn(true);
+
+            when(s3Config.endpoint()).thenReturn(Optional.of("http://minio:9000"));
+            when(s3Config.accessKeyId()).thenReturn("admin");
+            when(s3Config.secretAccessKey()).thenReturn("password");
+
+            CatalogClient client = createAndTrackClient();
+
+            assertThat(client).isNotNull();
+            assertThat(client.getCatalogName()).isEqualTo("lakekeeper-catalog");
+        }
+
+        @Test
+        @DisplayName("handles lowercase type")
+        void handlesLowercaseType() {
+            when(catalogConfig.type()).thenReturn("lakekeeper");
+            when(lakekeeperConfig.uri())
+                    .thenReturn(Optional.of("https://lakekeeper.example.com/catalog"));
+            when(lakekeeperConfig.credential()).thenReturn(Optional.empty());
+            when(lakekeeperConfig.oauth2ServerUri()).thenReturn(Optional.empty());
+            when(lakekeeperConfig.scope()).thenReturn(Optional.empty());
+            when(lakekeeperConfig.nestedNamespaceEnabled()).thenReturn(true);
+            when(lakekeeperConfig.vendedCredentialsEnabled()).thenReturn(true);
+
+            CatalogClient client = createAndTrackClient();
+
+            assertThat(client).isNotNull();
+            assertThat(client.getCatalogName()).isEqualTo("lakekeeper-catalog");
+        }
+
+        @Test
+        @DisplayName("returns stub client when URI is missing")
+        void returnsStubClientWhenMissingUri() {
+            when(lakekeeperConfig.uri()).thenReturn(Optional.empty());
+            when(lakekeeperConfig.credential()).thenReturn(Optional.empty());
+            when(lakekeeperConfig.oauth2ServerUri()).thenReturn(Optional.empty());
+            when(lakekeeperConfig.scope()).thenReturn(Optional.empty());
+
+            CatalogClient client = createAndTrackClient();
+
+            assertThat(client).isNotNull();
+            assertThat(client.isHealthy()).isFalse();
+        }
+
+        @Test
+        @DisplayName("uses default OAuth2 token endpoint when not specified")
+        void usesDefaultOAuth2TokenEndpoint() {
+            when(lakekeeperConfig.uri())
+                    .thenReturn(Optional.of("https://lakekeeper.example.com/catalog"));
+            when(lakekeeperConfig.credential()).thenReturn(Optional.of("client-id:client-secret"));
+            when(lakekeeperConfig.oauth2ServerUri()).thenReturn(Optional.empty());
+            when(lakekeeperConfig.scope()).thenReturn(Optional.empty());
+            when(lakekeeperConfig.nestedNamespaceEnabled()).thenReturn(true);
+            when(lakekeeperConfig.vendedCredentialsEnabled()).thenReturn(true);
+
+            CatalogClient client = createAndTrackClient();
+
+            assertThat(client).isNotNull();
+            assertThat(client.getCatalogName()).isEqualTo("lakekeeper-catalog");
+        }
+
+        @Test
+        @DisplayName("ignores invalid credential format")
+        void ignoresInvalidCredentialFormat() {
+            when(lakekeeperConfig.uri())
+                    .thenReturn(Optional.of("https://lakekeeper.example.com/catalog"));
+            when(lakekeeperConfig.credential()).thenReturn(Optional.of("invalid-no-colon"));
+            when(lakekeeperConfig.oauth2ServerUri()).thenReturn(Optional.empty());
+            when(lakekeeperConfig.scope()).thenReturn(Optional.empty());
+            when(lakekeeperConfig.nestedNamespaceEnabled()).thenReturn(true);
+            when(lakekeeperConfig.vendedCredentialsEnabled()).thenReturn(true);
+
+            CatalogClient client = createAndTrackClient();
+
+            assertThat(client).isNotNull();
+            assertThat(client.getCatalogName()).isEqualTo("lakekeeper-catalog");
+        }
+    }
+
+    @Nested
+    @DisplayName("Gravitino catalog")
+    class GravitinoCatalogTests {
+
+        @BeforeEach
+        void setUp() {
+            when(catalogConfig.type()).thenReturn("GRAVITINO");
+            when(catalogConfig.name()).thenReturn("gravitino-catalog");
+            when(catalogConfig.warehouse()).thenReturn("s3://warehouse/");
+        }
+
+        @Test
+        @DisplayName("creates Gravitino catalog client with basic config")
+        void createsGravitinoCatalogClient() {
+            when(gravitinoConfig.uri())
+                    .thenReturn(Optional.of("http://gravitino:9001/iceberg/demo"));
+            when(gravitinoConfig.credential()).thenReturn(Optional.empty());
+            when(gravitinoConfig.oauth2ServerUri()).thenReturn(Optional.empty());
+            when(gravitinoConfig.metalake()).thenReturn(Optional.empty());
+            when(gravitinoConfig.vendedCredentialsEnabled()).thenReturn(true);
+
+            CatalogClient client = createAndTrackClient();
+
+            assertThat(client).isNotNull();
+            assertThat(client.getCatalogName()).isEqualTo("gravitino-catalog");
+        }
+
+        @Test
+        @DisplayName("creates Gravitino catalog client with OAuth2 credentials")
+        void createsGravitinoCatalogClientWithOAuth2() {
+            when(gravitinoConfig.uri())
+                    .thenReturn(Optional.of("http://gravitino:9001/iceberg/demo"));
+            when(gravitinoConfig.credential()).thenReturn(Optional.of("client-id:client-secret"));
+            when(gravitinoConfig.oauth2ServerUri())
+                    .thenReturn(Optional.of("https://idp.example.com/oauth/token"));
+            when(gravitinoConfig.metalake()).thenReturn(Optional.of("demo"));
+            when(gravitinoConfig.vendedCredentialsEnabled()).thenReturn(true);
+
+            CatalogClient client = createAndTrackClient();
+
+            assertThat(client).isNotNull();
+            assertThat(client.getCatalogName()).isEqualTo("gravitino-catalog");
+        }
+
+        @Test
+        @DisplayName("creates Gravitino catalog client with S3 endpoint")
+        void createsGravitinoCatalogClientWithS3Endpoint() {
+            when(gravitinoConfig.uri())
+                    .thenReturn(Optional.of("http://gravitino:9001/iceberg/demo"));
+            when(gravitinoConfig.credential()).thenReturn(Optional.empty());
+            when(gravitinoConfig.oauth2ServerUri()).thenReturn(Optional.empty());
+            when(gravitinoConfig.metalake()).thenReturn(Optional.empty());
+            when(gravitinoConfig.vendedCredentialsEnabled()).thenReturn(true);
+
+            when(s3Config.endpoint()).thenReturn(Optional.of("http://minio:9000"));
+            when(s3Config.accessKeyId()).thenReturn("admin");
+            when(s3Config.secretAccessKey()).thenReturn("password");
+
+            CatalogClient client = createAndTrackClient();
+
+            assertThat(client).isNotNull();
+            assertThat(client.getCatalogName()).isEqualTo("gravitino-catalog");
+        }
+
+        @Test
+        @DisplayName("handles lowercase type")
+        void handlesLowercaseType() {
+            when(catalogConfig.type()).thenReturn("gravitino");
+            when(gravitinoConfig.uri())
+                    .thenReturn(Optional.of("http://gravitino:9001/iceberg/demo"));
+            when(gravitinoConfig.credential()).thenReturn(Optional.empty());
+            when(gravitinoConfig.oauth2ServerUri()).thenReturn(Optional.empty());
+            when(gravitinoConfig.metalake()).thenReturn(Optional.empty());
+            when(gravitinoConfig.vendedCredentialsEnabled()).thenReturn(true);
+
+            CatalogClient client = createAndTrackClient();
+
+            assertThat(client).isNotNull();
+            assertThat(client.getCatalogName()).isEqualTo("gravitino-catalog");
+        }
+
+        @Test
+        @DisplayName("returns stub client when URI is missing")
+        void returnsStubClientWhenMissingUri() {
+            when(gravitinoConfig.uri()).thenReturn(Optional.empty());
+            when(gravitinoConfig.credential()).thenReturn(Optional.empty());
+            when(gravitinoConfig.oauth2ServerUri()).thenReturn(Optional.empty());
+            when(gravitinoConfig.metalake()).thenReturn(Optional.empty());
 
             CatalogClient client = createAndTrackClient();
 

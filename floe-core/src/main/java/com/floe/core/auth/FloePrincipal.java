@@ -85,6 +85,7 @@ public class FloePrincipal implements Principal {
         return new Builder();
     }
 
+    /** Builder for FloePrincipal. */
     public static class Builder {
 
         private String userId;
