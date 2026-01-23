@@ -43,7 +43,7 @@ make example-nessie     # Project Nessie
 
 - **Policy-driven** - Define maintenance rules that match tables by glob pattern
 - **Scheduled** - Cron-based scheduling support as well as manual triggering
-- **Multi-catalog** - Iceberg REST, Hive, Nessie, Polaris are currently supported
+- **Multi-catalog** - Iceberg REST Catalogs(Polaris, Lakekeeper, Gravitino), and Hive, Nessie are currently supported
 - **Multi-engine** - Spark (via Livy), Trino
 - **Pluggable** - Swap catalogs, engines, and storage backends
 
