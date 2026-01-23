@@ -47,6 +47,7 @@ nav:
   - Getting Started:
       - Configuration: getting-started/configuration.md
       - Policies: policies.md
+      - Security: security.md
   - Architecture:
       - Overview: architecture/overview.md
       - Scheduler: architecture/scheduler.md
@@ -56,6 +57,8 @@ nav:
       - Hive Metastore: catalogs/hms.md
       - Apache Polaris: catalogs/polaris.md
       - Project Nessie: catalogs/nessie.md
+      - Lakekeeper: catalogs/lakekeeper.md
+      - Gravitino: catalogs/gravitino.md
   - Engines:
       - Overview: engines/index.md
       - Apache Spark: engines/spark.md

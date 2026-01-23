@@ -12,7 +12,7 @@ It orchestrates maintenance using Iceberg's built-in procedures via Spark or Tri
 
 ## High Level Architecture
 
-<img src="docs/assets/high_level.svg" alt="High Level" width="600">
+<img src="docs/assets/high_level_updated.png" alt="High Level" width="600">
 
 ## Quick Start
 
@@ -28,12 +28,15 @@ Open http://localhost:9091 and explore the API or UI.
 ## Full Example Setups
 
 ```bash
-make example-rest      # Iceberg REST Catalog
-make example-nessie    # Project Nessie
-make example-polaris   # Apache Polaris
-make example-hms       # Hive Metastore
+make example-rest       # Iceberg REST Catalog (Vanilla)
+make example-polaris    # Apache Polaris
+make example-lakekeeper # Lakekeeper
+make example-gravitino  # Gravitino
+make example-hms        # Hive Metastore
+make example-nessie     # Project Nessie
+
 # Swap execution engine by running make example-<catalog>-trino default is Spark
-# Run a `make clean` to stop and remove containers before starting a new example
+# Run a make clean to stop and remove containers before starting a new example
 ```
 
 ## Features

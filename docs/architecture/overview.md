@@ -4,7 +4,7 @@ Floe is a modular platform for Apache Iceberg table maintenance. Every core comp
 
 ## System Architecture
 
-![Floe Architecture](../assets/architecture.svg){width="600"}
+![Floe Architecture](../assets/architecture.png){width="600"}
 
 ## Extension Points
 
@@ -12,7 +12,7 @@ External integrations are pluggable with configuration:
 
 | Component | Interface | Implementations |
 |-----------|-----------|-----------------|
-| **Catalog** | `CatalogClient` | Iceberg REST, Hive, Nessie, Polaris |
+| **Catalog** | `CatalogClient` | Iceberg REST, Hive, Nessie, Polaris, Lakekeeper, Gravitino |
 | **Engine** | `ExecutionEngine` | Spark, Trino |
 | **Store** | `PolicyStore`, `OperationStore` | PostgreSQL, Memory |
 
@@ -44,11 +44,13 @@ curl -X POST http://floe:9091/api/v1/maintenance/trigger \
     3. Orchestrator matches tables
            |
            v
-    4. Engine executes maintenance
+    4. Engine executes maintenance (Spark or Trino)
            |
-           +--> Spark: rewriteDataFiles(), expireSnapshots()
+           +--> Spark: rewriteDataFiles(), expireSnapshots(),
+           |           deleteOrphanFiles(), rewriteManifests()
            |
-           +--> Trino: ALTER TABLE ... EXECUTE optimize
+           +--> Trino: ALTER TABLE ... EXECUTE optimize,
+           |           expire_snapshots, remove_orphan_files
            |
            v
     5. Operation recorded in Store

@@ -4,7 +4,7 @@ Apache Spark for Iceberg maintenance operations, submitted via Apache Livy REST 
 
 ## Operation Support
 
-Spark has full support for all Iceberg maintenance operations across all supported catalog types (REST, Hive, Nessie, Polaris).
+Spark has full support for all Iceberg maintenance operations across all supported catalog types (REST, Hive, Nessie, Polaris, Lakekeeper, Gravitino).
 
 Spark's `SparkActions` API provides the most comprehensive maintenance capabilities. Floe submits Spark jobs through Apache Livy, 
 which provides a REST interface to Spark clusters.

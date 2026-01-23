@@ -1,9 +1,11 @@
 .PHONY: build clean start test integration-test e2e fmt \
-	example-rest example-nessie example-polaris example-hms \
+	example-rest example-nessie example-polaris example-hms example-lakekeeper example-gravitino \
 	example-rest-spark example-rest-trino example-rest-spark-local example-rest-trino-local \
 	example-nessie-spark example-nessie-trino example-nessie-spark-local example-nessie-trino-local \
 	example-polaris-spark example-polaris-trino example-polaris-spark-local example-polaris-trino-local \
-	example-hms-spark example-hms-trino example-hms-spark-local example-hms-trino-local
+	example-hms-spark example-hms-trino example-hms-spark-local example-hms-trino-local \
+	example-lakekeeper-spark example-lakekeeper-trino example-lakekeeper-spark-local example-lakekeeper-trino-local \
+	example-gravitino-spark example-gravitino-trino example-gravitino-spark-local example-gravitino-trino-local
 
 # Default images
 FLOE_IMAGE ?= ghcr.io/nssalian/floe:latest
@@ -45,7 +47,7 @@ e2e:
 clean:
 	@echo "Cleaning all docker compose..."
 	@docker compose down -v 2>/dev/null || true
-	@for dir in rest-catalog nessie polaris hms; do \
+	@for dir in rest-catalog nessie polaris hms lakekeeper gravitino; do \
 		(cd examples/$$dir && FLOE_IMAGE=$(FLOE_IMAGE) FLOE_LIVY_IMAGE=$(FLOE_LIVY_IMAGE) docker compose --profile trino --profile spark down -v 2>/dev/null) || true; \
 	done
 	@docker ps -q --filter "publish=9091" | xargs -r docker stop 2>/dev/null || true
@@ -58,10 +60,12 @@ start:
 	@echo "Starting Floe (in-memory storage, no catalog or engine)..."
 	@echo ""
 	@echo "For end-to-end examples with Spark/Trino:"
-	@echo "  make example-rest     # REST Catalog"
-	@echo "  make example-nessie   # Nessie"
-	@echo "  make example-polaris  # Polaris"
-	@echo "  make example-hms      # Hive Metastore"
+	@echo "  make example-rest       # REST Catalog"
+	@echo "  make example-nessie     # Nessie"
+	@echo "  make example-polaris    # Polaris"
+	@echo "  make example-hms        # Hive Metastore"
+	@echo "  make example-lakekeeper # Lakekeeper"
+	@echo "  make example-gravitino  # Gravitino"
 	@echo ""
 	@FLOE_IMAGE=$(FLOE_IMAGE) FLOE_LIVY_IMAGE=$(FLOE_LIVY_IMAGE) docker compose up -d
 	@echo "Waiting for Floe to be ready..."
@@ -72,7 +76,7 @@ start:
 
 # Stop all running examples
 define stop_all
-	@for dir in rest-catalog nessie polaris hms; do \
+	@for dir in rest-catalog nessie polaris hms lakekeeper gravitino; do \
 		(cd examples/$$dir && docker compose --profile trino --profile spark stop 2>/dev/null) || true; \
 	done
 endef
@@ -178,3 +182,35 @@ example-hms-spark-local: build
 
 example-hms-trino-local: build
 	$(call start_trino,Hive Metastore,hms,floe:local,floe-livy:local)
+
+# Examples - Lakekeeper
+
+example-lakekeeper: example-lakekeeper-spark
+
+example-lakekeeper-spark:
+	$(call start_spark,Lakekeeper,lakekeeper,$(FLOE_IMAGE),$(FLOE_LIVY_IMAGE))
+
+example-lakekeeper-trino:
+	$(call start_trino,Lakekeeper,lakekeeper,$(FLOE_IMAGE),$(FLOE_LIVY_IMAGE))
+
+example-lakekeeper-spark-local: build
+	$(call start_spark,Lakekeeper,lakekeeper,floe:local,floe-livy:local)
+
+example-lakekeeper-trino-local: build
+	$(call start_trino,Lakekeeper,lakekeeper,floe:local,floe-livy:local)
+
+# Examples - Gravitino
+
+example-gravitino: example-gravitino-spark
+
+example-gravitino-spark:
+	$(call start_spark,Gravitino,gravitino,$(FLOE_IMAGE),$(FLOE_LIVY_IMAGE))
+
+example-gravitino-trino:
+	$(call start_trino,Gravitino,gravitino,$(FLOE_IMAGE),$(FLOE_LIVY_IMAGE))
+
+example-gravitino-spark-local: build
+	$(call start_spark,Gravitino,gravitino,floe:local,floe-livy:local)
+
+example-gravitino-trino-local: build
+	$(call start_trino,Gravitino,gravitino,floe:local,floe-livy:local)

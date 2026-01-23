@@ -4,8 +4,8 @@ Trino executes Iceberg maintenance using built-in table procedures via JDBC.
 
 ## Operation Support
 
-All Iceberg maintenance operations are supported across all catalog types 
-(REST, Hive, Nessie, Polaris).
+All Iceberg maintenance operations are supported across all catalog types
+(REST, Hive, Nessie, Polaris, Lakekeeper, Gravitino).
 
 ## Configuration
 
