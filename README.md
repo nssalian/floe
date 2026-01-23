@@ -12,7 +12,7 @@ It orchestrates maintenance using Iceberg's built-in procedures via Spark or Tri
 
 ## High Level Architecture
 
-<img src="docs/assets/high_level_updated.png" alt="High Level" width="600">
+<img src="docs/assets/high_level.png" alt="High Level" width="600">
 
 ## Quick Start
 
