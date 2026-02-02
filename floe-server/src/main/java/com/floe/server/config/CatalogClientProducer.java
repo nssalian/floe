@@ -36,9 +36,10 @@ public class CatalogClientProducer {
                 case "NESSIE" -> createNessieCatalogClient(catalogConfig);
                 case "LAKEKEEPER" -> createLakekeeperCatalogClient(catalogConfig);
                 case "GRAVITINO" -> createGravitinoCatalogClient(catalogConfig);
+                case "DATAHUB" -> createDataHubCatalogClient(catalogConfig);
                 default -> {
                     LOG.error(
-                            "Unsupported catalog type: {}. Supported types: REST, HIVE, POLARIS, NESSIE, LAKEKEEPER, GRAVITINO",
+                            "Unsupported catalog type: {}. Supported types: REST, HIVE, POLARIS, NESSIE, LAKEKEEPER, GRAVITINO, DATAHUB",
                             catalogType);
                     yield new StubCatalogClient(catalogName);
                 }
@@ -355,6 +356,54 @@ public class CatalogClientProducer {
                         });
 
         return builder.build();
+    }
+
+    private CatalogClient createDataHubCatalogClient(FloeConfig.Catalog catalogConfig) {
+        String catalogName = catalogConfig.name();
+        String warehouse = catalogConfig.warehouse();
+        FloeConfig.Catalog.DataHub datahubConfig = catalogConfig.datahub();
+
+        String uri =
+                datahubConfig
+                        .uri()
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "floe.catalog.datahub.uri is required when catalog type is DATAHUB"));
+
+        String token =
+                datahubConfig
+                        .token()
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "floe.catalog.datahub.token is required when catalog type is DATAHUB"));
+
+        Map<String, String> additionalProps = new HashMap<>();
+
+        // Add S3 configuration if endpoint is specified
+        FloeConfig.Catalog.S3 s3Config = catalogConfig.s3();
+        s3Config.endpoint()
+                .filter(ep -> !ep.isBlank())
+                .ifPresent(
+                        endpoint -> {
+                            additionalProps.put("io-impl", "org.apache.iceberg.aws.s3.S3FileIO");
+                            additionalProps.put("s3.endpoint", endpoint);
+                            additionalProps.put("s3.access-key-id", s3Config.accessKeyId());
+                            additionalProps.put("s3.secret-access-key", s3Config.secretAccessKey());
+                            additionalProps.put("s3.region", s3Config.region());
+                            additionalProps.put("s3.path-style-access", "true");
+                        });
+
+        LOG.info("Creating DataHub catalog client: uri={}, warehouse={}", uri, warehouse);
+
+        return DataHubCatalogClient.builder()
+                .catalogName(catalogName)
+                .datahubUri(uri)
+                .warehouse(warehouse)
+                .token(token)
+                .additionalProperties(additionalProps)
+                .build();
     }
 
     /** Stub catalog client when real catalog is unavailable or misconfigured. */
