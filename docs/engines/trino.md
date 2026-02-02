@@ -15,8 +15,8 @@ floe.engine-type=TRINO
 floe.trino.jdbc-url=jdbc:trino://trino:8080
 floe.trino.user=floe
 floe.trino.password=
-floe.trino.catalog=iceberg
-floe.trino.schema=default
+floe.trino.catalog=demo
+floe.trino.schema=test
 floe.trino.query-timeout-seconds=3600
 ```
 
@@ -27,8 +27,8 @@ floe.trino.query-timeout-seconds=3600
 | `floe.trino.jdbc-url` | Yes | - | JDBC connection URL |
 | `floe.trino.user` | Yes | - | Trino user |
 | `floe.trino.password` | No | - | Trino password |
-| `floe.trino.catalog` | Yes | - | Iceberg catalog name in Trino |
-| `floe.trino.schema` | No | `default` | Default schema |
+| `floe.trino.catalog` | Yes | `demo` | Iceberg catalog name in Trino |
+| `floe.trino.schema` | No | `test` | Default schema |
 | `floe.trino.query-timeout-seconds` | No | `3600` | Query timeout |
 
 

@@ -10,6 +10,7 @@ These are only intended for illustration, development and testing purposes and n
 | Catalog | Description | Best For                             |
 |---------|-------------|--------------------------------------|
 | [rest-catalog](./rest-catalog/) | Apache Iceberg REST Catalog | Local development, testing           |
+| [advanced](./advanced/) | REST Catalog (advanced features) | Health history, triggers, budgets |
 | [nessie](./nessie/) | Project Nessie (Git-like versioning) | Version control, branching workflows |
 | [polaris](./polaris/) | Apache Polaris (Snowflake Open Catalog) | Multi-engine access control          |
 | [hive-metastore](hms/) | Hive Metastore Service | Legacy Hive compatibility            |
@@ -51,6 +52,7 @@ To skip demo setup:
    ```bash
    # Uses pre-built Floe images from GitHub Container Registry
    make example-rest         # REST Catalog + Spark
+   make example-advanced     # REST Catalog + Spark (advanced)
    make example-nessie       # Project Nessie + Spark
    make example-polaris      # Apache Polaris + Spark
    make example-hms          # Hive Metastore + Spark
