@@ -8,10 +8,8 @@
 	example-gravitino-spark example-gravitino-trino example-gravitino-spark-local example-gravitino-trino-local
 
 # Default images
-#FLOE_IMAGE ?= ghcr.io/nssalian/floe:latest
-#FLOE_LIVY_IMAGE ?= ghcr.io/nssalian/floe-livy:latest
-FLOE_IMAGE ?= floe:local
-FLOE_LIVY_IMAGE ?= floe-livy:local
+FLOE_IMAGE ?= ghcr.io/nssalian/floe:latest
+FLOE_LIVY_IMAGE ?= ghcr.io/nssalian/floe-livy:latest
 SKIP_DEMO ?= 0
 SKIP_DEMO_POLICIES ?= 0
 
