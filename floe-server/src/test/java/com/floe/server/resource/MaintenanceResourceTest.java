@@ -14,6 +14,7 @@ import com.floe.core.orchestrator.MaintenanceOrchestrator;
 import com.floe.core.orchestrator.OperationResult;
 import com.floe.core.orchestrator.OrchestratorResult;
 import com.floe.server.api.TriggerRequest;
+import com.floe.server.health.HealthReportCache;
 import com.floe.server.metrics.FloeMetrics;
 import jakarta.ws.rs.core.Response;
 import java.time.Instant;
@@ -31,6 +32,8 @@ class MaintenanceResourceTest {
     @Mock MaintenanceOrchestrator orchestrator;
 
     @Mock FloeMetrics metrics;
+
+    @Mock HealthReportCache healthReportCache;
 
     @InjectMocks MaintenanceResource resource;
 

@@ -68,4 +68,9 @@ public record ErrorResponse(
     public static ErrorResponse badRequest(String message) {
         return new ErrorResponse(message, "BAD_REQUEST", Map.of(), Instant.now());
     }
+
+    /** Service unavailable error. */
+    public static ErrorResponse serviceUnavailable(String message) {
+        return new ErrorResponse(message, "SERVICE_UNAVAILABLE", Map.of(), Instant.now());
+    }
 }

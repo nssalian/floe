@@ -23,7 +23,9 @@ Policies define maintenance operations for Iceberg tables matching a pattern.
   "orphanCleanupSchedule": { ... },
 
   "rewriteManifests": { ... },
-  "rewriteManifestsSchedule": { ... }
+  "rewriteManifestsSchedule": { ... },
+
+  "healthThresholds": { ... }
 }
 ```
 
@@ -218,6 +220,128 @@ Each operation can have its own schedule.
 ```
 
 ---
+
+## healthThresholds
+
+Optional overrides for health issue thresholds used by auto-mode and recommendations. All fields are optional; unspecified fields use system defaults.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `smallFileSizeBytes` | long | 104857600 | Size below which a file is considered "small" (100 MB) |
+| `smallFilePercentWarning` | double | 20.0 | Warning threshold for small file percentage |
+| `smallFilePercentCritical` | double | 50.0 | Critical threshold for small file percentage |
+| `largeFileSizeBytes` | long | 1073741824 | Size above which a file is considered "large" (1 GB) |
+| `largeFilePercentWarning` | double | 20.0 | Warning threshold for large file percentage |
+| `largeFilePercentCritical` | double | 50.0 | Critical threshold for large file percentage |
+| `fileCountWarning` | int | 10000 | Warning threshold for total file count |
+| `fileCountCritical` | int | 50000 | Critical threshold for total file count |
+| `snapshotCountWarning` | int | 100 | Warning threshold for snapshot count |
+| `snapshotCountCritical` | int | 500 | Critical threshold for snapshot count |
+| `snapshotAgeWarningDays` | int | 7 | Warning threshold for oldest snapshot age (days) |
+| `snapshotAgeCriticalDays` | int | 30 | Critical threshold for oldest snapshot age (days) |
+| `deleteFileCountWarning` | int | 100 | Warning threshold for delete file count |
+| `deleteFileCountCritical` | int | 500 | Critical threshold for delete file count |
+| `deleteFileRatioWarning` | double | 0.10 | Warning threshold for delete file ratio (deleteFiles/dataFiles) |
+| `deleteFileRatioCritical` | double | 0.25 | Critical threshold for delete file ratio |
+| `manifestCountWarning` | int | 100 | Warning threshold for manifest count |
+| `manifestCountCritical` | int | 500 | Critical threshold for manifest count |
+| `manifestSizeWarningBytes` | long | 104857600 | Warning threshold for total manifest size (100 MB) |
+| `manifestSizeCriticalBytes` | long | 524288000 | Critical threshold for total manifest size (500 MB) |
+| `partitionCountWarning` | int | 5000 | Warning threshold for partition count |
+| `partitionCountCritical` | int | 10000 | Critical threshold for partition count |
+| `partitionSkewWarning` | double | 3.0 | Warning threshold for partition skew (max/avg files per partition) |
+| `partitionSkewCritical` | double | 10.0 | Critical threshold for partition skew |
+| `staleMetadataWarningDays` | int | 7 | Warning threshold for days since last write |
+| `staleMetadataCriticalDays` | int | 30 | Critical threshold for days since last write |
+
+**Example - Custom thresholds for high-volume tables:**
+
+```json
+{
+  "healthThresholds": {
+    "smallFilePercentWarning": 15.0,
+    "smallFilePercentCritical": 40.0,
+    "snapshotCountWarning": 50,
+    "snapshotCountCritical": 200,
+    "deleteFileRatioWarning": 0.05,
+    "deleteFileRatioCritical": 0.15,
+    "fileCountWarning": 20000,
+    "fileCountCritical": 100000
+  }
+}
+```
+
+**Preset configurations:**
+
+- **defaults()** - Standard thresholds suitable for most tables
+- **strict()** - Tighter thresholds for high-performance tables requiring aggressive maintenance
+- **relaxed()** - Looser thresholds for archival or low-priority tables
+
+---
+
+## triggerConditions
+
+Signal-based triggering conditions that gate when operations actually execute. By default, conditions use OR logic (any condition met triggers). If `triggerLogic` is set to `AND`, all configured conditions must be met. If `triggerConditions` is not set (null), operations run whenever the schedule is due (backward-compatible cron behavior).
+
+This enables data-driven maintenance: instead of running compaction every day regardless of need, Floe evaluates table health and only triggers when conditions warrant action.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `smallFilePercentageAbove` | double | Trigger when small file % exceeds value |
+| `smallFileCountAbove` | long | Trigger when small file count exceeds value |
+| `totalFileSizeAboveBytes` | long | Trigger when total data size exceeds value |
+| `deleteFileCountAbove` | integer | Trigger when delete file count exceeds value |
+| `deleteFileRatioAbove` | double | Trigger when delete file ratio exceeds value |
+| `snapshotCountAbove` | integer | Trigger when snapshot count exceeds value |
+| `snapshotAgeAboveDays` | integer | Trigger when oldest snapshot age exceeds value |
+| `partitionCountAbove` | integer | Trigger when partition count exceeds value |
+| `partitionSkewAbove` | double | Trigger when partition skew exceeds value |
+| `manifestSizeAboveBytes` | long | Trigger when total manifest size exceeds value |
+| `minIntervalMinutes` | integer | Minimum time between operations (global) |
+| `perOperationMinIntervalMinutes` | object | Per-operation minimum intervals |
+| `criticalPipeline` | boolean | Force trigger when max delay exceeded |
+| `criticalPipelineMaxDelayMinutes` | integer | Max delay before forcing (for critical pipelines) |
+| `triggerLogic` | string | `OR` (default) or `AND` |
+
+**Example - Signal-based compaction:**
+
+```json
+{
+  "triggerConditions": {
+    "smallFilePercentageAbove": 20,
+    "smallFileCountAbove": 100,
+    "deleteFileCountAbove": 50,
+    "minIntervalMinutes": 60,
+    "perOperationMinIntervalMinutes": {
+      "REWRITE_DATA_FILES": 120,
+      "EXPIRE_SNAPSHOTS": 1440
+    },
+    "triggerLogic": "OR"
+  }
+}
+```
+
+**Example - Critical pipeline with forced execution:**
+
+```json
+{
+  "triggerConditions": {
+    "smallFilePercentageAbove": 30,
+    "criticalPipeline": true,
+    "criticalPipelineMaxDelayMinutes": 360,
+    "triggerLogic": "AND"
+  }
+}
+```
+
+When `criticalPipeline` is true and the time since last operation exceeds `criticalPipelineMaxDelayMinutes`, the operation is forced even if no conditions are met. This ensures critical tables are never left unmaintained for too long.
+
+**Behavior notes:**
+- `null` triggerConditions = always trigger when schedule is due (cron-based)
+- `triggerLogic` = `OR` (default) or `AND` (all conditions required)
+- Any condition met = operation triggers when `triggerLogic` is `OR`
+- `minIntervalMinutes` prevents rapid re-execution even if conditions are met
+- Health data is required to evaluate conditions; if unavailable, conditions are not evaluated
 
 ## Engine Support
 

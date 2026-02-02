@@ -60,6 +60,8 @@ class PolicyResourceTest {
                         null,
                         null,
                         50,
+                        null, // healthThresholds
+                        null, // triggerConditions
                         Map.of(),
                         now,
                         now);
@@ -218,6 +220,8 @@ class PolicyResourceTest {
                         null,
                         null,
                         50,
+                        null, // healthThresholds
+                        null, // triggerConditions
                         Map.of(),
                         Instant.now(),
                         Instant.now());
@@ -256,6 +260,8 @@ class PolicyResourceTest {
                         null,
                         null,
                         50,
+                        null, // healthThresholds
+                        null, // triggerConditions
                         Map.of(),
                         Instant.now(),
                         Instant.now());
@@ -318,6 +324,8 @@ class PolicyResourceTest {
                         null,
                         null,
                         50,
+                        null, // healthThresholds
+                        null, // triggerConditions
                         Map.of(),
                         testPolicy.createdAt(),
                         Instant.now());

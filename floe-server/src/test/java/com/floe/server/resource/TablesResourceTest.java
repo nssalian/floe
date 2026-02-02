@@ -3,14 +3,20 @@ package com.floe.server.resource;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 import com.floe.core.catalog.CatalogClient;
 import com.floe.core.catalog.TableIdentifier;
 import com.floe.core.catalog.TableMetadata;
+import com.floe.core.health.TableHealthStore;
+import com.floe.core.policy.PolicyMatcher;
 import com.floe.server.api.ErrorResponse;
 import com.floe.server.api.HealthReportResponse;
 import com.floe.server.api.TableDetailResponse;
+import com.floe.server.config.HealthConfig;
+import com.floe.server.health.HealthReportCache;
 import jakarta.ws.rs.core.Response;
 import java.time.Instant;
 import java.util.List;
@@ -32,6 +38,14 @@ class TablesResourceTest {
 
     @Mock CatalogClient catalogClient;
 
+    @Mock HealthConfig healthConfig;
+
+    @Mock TableHealthStore healthStore;
+
+    @Mock PolicyMatcher policyMatcher;
+
+    @Mock HealthReportCache healthReportCache;
+
     @InjectMocks TablesResource resource;
 
     private TableIdentifier table1;
@@ -40,6 +54,19 @@ class TablesResourceTest {
 
     @BeforeEach
     void setUp() {
+        // Setup HealthConfig mock (lenient because not all tests use health endpoints)
+        lenient().when(healthConfig.persistenceEnabled()).thenReturn(false);
+        lenient().when(healthConfig.scanMode()).thenReturn("scan");
+        lenient().when(healthConfig.sampleLimit()).thenReturn(1000);
+        lenient().when(healthConfig.maxReportsPerTable()).thenReturn(100);
+        lenient()
+                .when(healthStore.findHistory(anyString(), anyString(), anyString(), anyInt()))
+                .thenReturn(List.of());
+        lenient()
+                .when(policyMatcher.findEffectivePolicy(anyString(), any(TableIdentifier.class)))
+                .thenReturn(Optional.empty());
+        lenient().when(healthReportCache.getIfFresh(any())).thenReturn(Optional.empty());
+
         table1 = TableIdentifier.of("demo", "test", "events");
         table2 = TableIdentifier.of("demo", "test", "users");
 
@@ -334,5 +361,90 @@ class TablesResourceTest {
 
         ErrorResponse body = (ErrorResponse) response.getEntity();
         assertThat(body.error()).isEqualTo("Table not found: test.nonexistent");
+    }
+
+    @Test
+    void shouldPersistHealthReportWhenEnabled() {
+        when(healthConfig.persistenceEnabled()).thenReturn(true);
+        when(catalogClient.getCatalogName()).thenReturn("demo");
+
+        org.apache.iceberg.Table mockTable =
+                mock(org.apache.iceberg.Table.class, withSettings().lenient());
+        when(mockTable.currentSnapshot()).thenReturn(null);
+        when(mockTable.snapshots()).thenReturn(List.of());
+
+        when(catalogClient.loadTable(any(TableIdentifier.class)))
+                .thenReturn(Optional.of(mockTable));
+
+        Response response = resource.getTableHealth("test", "events");
+
+        assertEquals(200, response.getStatus());
+        verify(healthStore).save(any());
+    }
+
+    @Test
+    void shouldNotPersistHealthReportWhenDisabled() {
+        when(healthConfig.persistenceEnabled()).thenReturn(false);
+        when(catalogClient.getCatalogName()).thenReturn("demo");
+
+        org.apache.iceberg.Table mockTable =
+                mock(org.apache.iceberg.Table.class, withSettings().lenient());
+        when(mockTable.currentSnapshot()).thenReturn(null);
+        when(mockTable.snapshots()).thenReturn(List.of());
+
+        when(catalogClient.loadTable(any(TableIdentifier.class)))
+                .thenReturn(Optional.of(mockTable));
+
+        Response response = resource.getTableHealth("test", "events");
+
+        assertEquals(200, response.getStatus());
+        verify(healthStore, never()).save(any());
+    }
+
+    // Health history endpoint tests
+
+    @Test
+    void shouldReturnHealthHistory() {
+        when(catalogClient.getCatalogName()).thenReturn("demo");
+        when(healthStore.findHistory("demo", "test", "events", 10)).thenReturn(List.of());
+
+        // Table exists check
+        org.apache.iceberg.Table mockTable =
+                mock(org.apache.iceberg.Table.class, withSettings().lenient());
+        when(catalogClient.loadTable(any(TableIdentifier.class)))
+                .thenReturn(Optional.of(mockTable));
+
+        Response response = resource.getTableHealthHistory("test", "events", 10);
+
+        assertEquals(200, response.getStatus());
+        Map<String, Object> body = (Map<String, Object>) response.getEntity();
+        assertEquals("demo", body.get("catalog"));
+        assertEquals("test", body.get("namespace"));
+        assertEquals("events", body.get("table"));
+        assertNotNull(body.get("history"));
+    }
+
+    @Test
+    void shouldReturn404ForHealthHistoryWhenTableNotFound() {
+        when(catalogClient.getCatalogName()).thenReturn("demo");
+        when(healthStore.findHistory("demo", "test", "nonexistent", 10)).thenReturn(List.of());
+        when(catalogClient.loadTable(any(TableIdentifier.class))).thenReturn(Optional.empty());
+
+        Response response = resource.getTableHealthHistory("test", "nonexistent", 10);
+
+        assertEquals(404, response.getStatus());
+    }
+
+    @Test
+    void shouldReturnLatestHealthReports() {
+        when(catalogClient.getCatalogName()).thenReturn("demo");
+        when(healthStore.findLatest(20)).thenReturn(List.of());
+
+        Response response = resource.getLatestHealthReports(20);
+
+        assertEquals(200, response.getStatus());
+        Map<String, Object> body = (Map<String, Object>) response.getEntity();
+        assertEquals("demo", body.get("catalog"));
+        assertNotNull(body.get("reports"));
     }
 }

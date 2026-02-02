@@ -7,6 +7,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.floe.core.catalog.TableIdentifier;
 import com.floe.core.exception.FloeConfigurationException;
 import com.floe.core.exception.FloeDataAccessException;
+import com.floe.core.health.HealthThresholds;
 import java.sql.*;
 import java.time.Instant;
 import java.util.*;
@@ -51,6 +52,8 @@ public class PostgresPolicyStore implements PolicyStore {
                 rewrite_manifests_config JSONB,
                 rewrite_manifests_schedule JSONB,
 
+                health_thresholds JSONB,
+                trigger_conditions JSONB,
                 tags JSONB,
 
                 created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
@@ -265,8 +268,8 @@ public class PostgresPolicyStore implements PolicyStore {
                 expire_snapshots_config, expire_snapshots_schedule,
                 orphan_cleanup_config, orphan_cleanup_schedule,
                 rewrite_manifests_config, rewrite_manifests_schedule,
-                tags, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb, ?, ?)
+                health_thresholds, trigger_conditions, tags, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb, ?, ?)
             ON CONFLICT (id) DO UPDATE SET
                 name = EXCLUDED.name,
                 description = EXCLUDED.description,
@@ -281,6 +284,8 @@ public class PostgresPolicyStore implements PolicyStore {
                 orphan_cleanup_schedule = EXCLUDED.orphan_cleanup_schedule,
                 rewrite_manifests_config = EXCLUDED.rewrite_manifests_config,
                 rewrite_manifests_schedule = EXCLUDED.rewrite_manifests_schedule,
+                health_thresholds = EXCLUDED.health_thresholds,
+                trigger_conditions = EXCLUDED.trigger_conditions,
                 tags = EXCLUDED.tags,
                 updated_at = EXCLUDED.updated_at
             """;
@@ -301,15 +306,17 @@ public class PostgresPolicyStore implements PolicyStore {
             statement.setString(12, toJson(policy.orphanCleanupSchedule()));
             statement.setString(13, toJson(policy.rewriteManifests()));
             statement.setString(14, toJson(policy.rewriteManifestsSchedule()));
-            statement.setString(15, toJson(policy.tags()));
+            statement.setString(15, toJson(policy.healthThresholds()));
+            statement.setString(16, toJson(policy.triggerConditions()));
+            statement.setString(17, toJson(policy.tags()));
             statement.setTimestamp(
-                    16, Timestamp.from(policy.createdAt() != null ? policy.createdAt() : now));
-            statement.setTimestamp(17, Timestamp.from(now));
+                    18, Timestamp.from(policy.createdAt() != null ? policy.createdAt() : now));
+            statement.setTimestamp(19, Timestamp.from(now));
 
             statement.executeUpdate();
             LOG.debug("Saved policy: {} ({})", policy.name(), policy.id());
         } catch (SQLException e) {
-            if (e.getMessage() != null && e.getMessage().contains("unique constraint")) {
+            if (isUniqueConstraintViolation(e)) {
                 throw new IllegalArgumentException(
                         "A policy with name '" + policy.name() + "' already exists");
             }
@@ -450,6 +457,8 @@ public class PostgresPolicyStore implements PolicyStore {
                             rs.getString("rewrite_manifests_config"), RewriteManifestsConfig.class),
                     fromJson(rs.getString("rewrite_manifests_schedule"), ScheduleConfig.class),
                     rs.getInt("priority"),
+                    fromJson(rs.getString("health_thresholds"), HealthThresholds.class),
+                    fromJson(rs.getString("trigger_conditions"), TriggerConditions.class),
                     fromJsonMap(rs.getString("tags")),
                     rs.getTimestamp("created_at").toInstant(),
                     rs.getTimestamp("updated_at").toInstant());
@@ -486,5 +495,9 @@ public class PostgresPolicyStore implements PolicyStore {
     @Override
     public String toString() {
         return String.format("PostgresPolicyStore[count=%d]", count());
+    }
+
+    private boolean isUniqueConstraintViolation(SQLException e) {
+        return "23505".equals(e.getSQLState());
     }
 }

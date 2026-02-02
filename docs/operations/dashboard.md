@@ -1,6 +1,6 @@
 # Dashboard
 
-Floe provides a read-only web dashboard for monitoring policies, tables, and maintenance operations.
+Floe provides a web dashboard for monitoring policies, tables, and maintenance operations.
 
 ## Accessing the Dashboard
 
@@ -12,8 +12,7 @@ or
 http://localhost:9091/ui
 ```
 
-Note: "Read-Only Interface"
-    The dashboard is intentionally read-only. All policy management must be done through the API.
+Note: Policy management is API-driven. The UI supports limited actions (manual triggers).
 ---
 
 ## Dashboard Views
@@ -36,20 +35,23 @@ View all configured policies at `/ui/policies`:
 | Column | Description |
 |--------|-------------|
 | Name | Policy identifier |
-| Description | Human-readable description |
 | Table Pattern | Glob pattern for matching tables |
+| Operations | Configured operations |
 | Status | Enabled/Disabled |
-| Operations | Configured operations (icons) |
 | Priority | Execution priority |
 
-Click on a policy to see detailed configuration including:
-
-- Full table pattern
-- Created/updated timestamps
-- All operation configurations with thresholds
-- Matching tables
-
 ![Policies](../assets/policies.png){width="700"}
+
+#### Policy detail view
+
+Overview and configured operations:
+
+![Policy overview](../assets/policy_view_1.png){width="700"}
+
+Operation settings and health thresholds:
+
+![Policy settings](../assets/policy_view_2.png){width="700"}
+
 
 ### Tables
 
@@ -57,10 +59,22 @@ Browse discovered tables at `/ui/tables`:
 
 - Table names from all configured catalogs
 - Catalog and namespace organization
-- Filter and search functionality
-- Last maintenance timestamp
+    - Table details and health trends
+- Health trend and recommended maintenance
+- Auto-mode status (debt score, throttling, backoff)
+- Scan mode and thresholds used for assessment
 
 ![Tables](../assets/tables.png){width="700"}
+
+#### Table detail view
+
+Summary metrics and core table metadata:
+
+![Table metadata](../assets/table_metadata_1.png){width="700"}
+
+Health assessment, auto-mode status, thresholds, and recommendations:
+
+![Table health and recommendations](../assets/table_metadata_2.png){width="700"}
 
 ### Operations
 
@@ -68,19 +82,15 @@ View maintenance operation history at `/ui/operations`:
 
 | Column | Description |
 |--------|-------------|
-| Operation | Type (Compact, Expire, etc.) |
-| Table | Target table name |
 | Status | Running, Completed, Failed |
+| Table | Target table name |
+| Policy | Policy name |
+| Engine | Spark or Trino |
 | Started | Operation start time |
 | Duration | Execution duration |
-| Files | Files processed/rewritten |
+| Actions | View operation details |
 
-Filter operations by:
-
-- Status (Running, Completed, Failed)
-- Operation type
-- Time range
-- Table name
+Filter operations by status.
 
 
 ![Operations](../assets/operations.png){width="700"}

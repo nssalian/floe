@@ -4,15 +4,122 @@
 # - Scheduler test policy for scheduler_test table (cron every minute)
 # - Individual policies for orders table (manual trigger only)
 #
+# Optional mode:
+#   ./scripts/setup-demo-policies.sh --full-maintenance "demo.test.*"
+#
 # Run after: make demo-setup
 
 set -e
 
 API="${FLOE_API:-http://localhost:9091/api/v1}"
 
-echo "Creating demo policies..."
-echo "API: http://localhost:9091/api/"
+FULL_MAINTENANCE_PATTERN=""
+if [ "$1" = "--full-maintenance" ]; then
+  FULL_MAINTENANCE_PATTERN="$2"
+fi
+
+echo "API: ${API}"
 echo ""
+
+full_maintenance_payload() {
+  local name="$1"
+  local description="$2"
+  local table_pattern="$3"
+  cat <<EOF
+{
+  "name": "${name}",
+  "description": "${description}",
+  "enabled": true,
+  "tablePattern": "${table_pattern}",
+  "priority": 100,
+
+  "rewriteDataFiles": {
+    "strategy": "BINPACK",
+    "targetFileSizeBytes": 33554432,
+    "maxConcurrentFileGroupRewrites": 5
+  },
+
+  "expireSnapshots": {
+    "retainLast": 1,
+    "maxSnapshotAge": "P1D",
+    "cleanExpiredMetadata": false
+  },
+
+  "orphanCleanup": {
+    "retentionPeriodInDays": 1
+  },
+
+  "rewriteManifests": {
+  },
+
+  "healthThresholds": {
+    "smallFilePercentWarning": 20.0,
+    "smallFilePercentCritical": 50.0,
+    "snapshotCountWarning": 20,
+    "snapshotCountCritical": 50,
+    "deleteFileRatioWarning": 0.02,
+    "deleteFileRatioCritical": 0.05
+  }
+}
+EOF
+}
+
+if [ -n "${FULL_MAINTENANCE_PATTERN}" ]; then
+  echo "Creating full maintenance policy for: ${FULL_MAINTENANCE_PATTERN}"
+  echo ""
+  echo "Removing existing full-maintenance policy (if any)..."
+  curl -s -X DELETE "${API}/policies/full-maintenance" > /dev/null 2>&1 || true
+  echo "Creating full-maintenance policy..."
+  full_maintenance_payload \
+    "full-maintenance" \
+    "Aggressive full maintenance policy for demo visibility" \
+    "${FULL_MAINTENANCE_PATTERN}" \
+    | curl -s -X POST "${API}/policies" -H "Content-Type: application/json" -d @- \
+    | jq -r '.name // .error'
+  echo ""
+  echo "Policy created. To trigger maintenance:"
+  echo ""
+  echo "  curl -X POST ${API}/maintenance/trigger \\"
+  echo "    -H 'Content-Type: application/json' \\"
+  echo "    -d '{\"catalog\": \"demo\", \"namespace\": \"test\", \"table\": \"events\"}'"
+  exit 0
+fi
+
+echo "Creating demo policies..."
+echo ""
+
+create_policy() {
+  local payload="$1"
+  local response status body name error
+  response=$(
+    printf "%s" "$payload" \
+      | curl -sS -w '\n__HTTP_STATUS__:%{http_code}' -X POST "${API}/policies" \
+        -H "Content-Type: application/json" -d @-
+  )
+  status=$(printf "%s" "$response" | sed -n 's/.*__HTTP_STATUS__://p' | tail -1)
+  body=$(printf "%s" "$response" | sed '$d')
+  name=$(printf "%s" "$body" | jq -r '.name // empty' 2>/dev/null)
+  error=$(printf "%s" "$body" | jq -r '.error // empty' 2>/dev/null)
+  if [ -z "$status" ]; then
+    status="000"
+  fi
+  if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+    echo "Policy creation failed (HTTP ${status}). Response:"
+    echo "$body"
+    return 1
+  fi
+  if [ -n "$name" ]; then
+    echo "$name"
+    return 0
+  fi
+  if [ -n "$error" ]; then
+    echo "$error"
+  else
+    echo "Policy creation failed. Response:"
+    echo "$body"
+  fi
+  return 1
+}
 
 # Clean up existing policies
 echo "Removing existing policies..."
@@ -31,41 +138,18 @@ FULL_MAINTENANCE_TABLES="events users transactions"
 
 for table in $FULL_MAINTENANCE_TABLES; do
   echo "Creating full-maintenance-${table} policy (manual trigger)..."
-  curl -s -X POST "${API}/policies" \
-    -H "Content-Type: application/json" \
-    -d '{
-      "name": "full-maintenance-'"${table}"'",
-      "description": "Full maintenance for '"${table}"' table - all 4 operations (manual trigger)",
-      "enabled": true,
-      "tablePattern": "demo.test.'"${table}"'",
-      "priority": 100,
-
-      "rewriteDataFiles": {
-        "strategy": "BINPACK",
-        "targetFileSizeBytes": 1048576
-      },
-
-      "expireSnapshots": {
-        "retainLast": 3,
-        "maxSnapshotAge": "P1D",
-        "cleanExpiredMetadata": false
-      },
-
-      "orphanCleanup": {
-        "retentionPeriodInDays": 1
-      },
-
-      "rewriteManifests": {
-      }
-    }' | jq -r '.name // .error'
+  create_policy "$(
+    full_maintenance_payload \
+      "full-maintenance-${table}" \
+      "Full maintenance for ${table} table - all 4 operations (manual trigger)" \
+      "demo.test.${table}"
+  )"
 done
 
 # Scheduler test policy - runs every minute (ONLY policy with cron)
 echo ""
 echo "Creating scheduler-test policy (cron: every minute)..."
-curl -s -X POST "${API}/policies" \
-  -H "Content-Type: application/json" \
-  -d '{
+create_policy '{
     "name": "scheduler-test",
     "description": "Scheduler test - compaction runs every minute via cron",
     "enabled": true,
@@ -79,7 +163,7 @@ curl -s -X POST "${API}/policies" \
       "cronExpression": "0 * * * * ?",
       "enabled": true
     }
-  }' | jq -r '.name // .error'
+  }'
 
 # Individual policies for orders table (NO cron - manual trigger only)
 echo ""
@@ -87,9 +171,7 @@ echo "Creating individual policies for orders table (manual trigger)..."
 
 # Policy 1: Compaction
 echo "  - orders-compaction"
-curl -s -X POST "${API}/policies" \
-  -H "Content-Type: application/json" \
-  -d '{
+create_policy '{
     "name": "orders-compaction",
     "description": "Compact small files in orders table (manual trigger)",
     "enabled": true,
@@ -99,13 +181,11 @@ curl -s -X POST "${API}/policies" \
       "strategy": "BINPACK",
       "targetFileSizeBytes": 1048576
     }
-  }' | jq -r '.name // .error'
+  }'
 
 # Policy 2: Expire snapshots
 echo "  - orders-expire"
-curl -s -X POST "${API}/policies" \
-  -H "Content-Type: application/json" \
-  -d '{
+create_policy '{
     "name": "orders-expire",
     "description": "Expire old snapshots from orders table (manual trigger)",
     "enabled": true,
@@ -115,13 +195,11 @@ curl -s -X POST "${API}/policies" \
       "retainLast": 3,
       "maxSnapshotAge": "P1D"
     }
-  }' | jq -r '.name // .error'
+  }'
 
 # Policy 3: Orphan cleanup
 echo "  - orders-orphan"
-curl -s -X POST "${API}/policies" \
-  -H "Content-Type: application/json" \
-  -d '{
+create_policy '{
     "name": "orders-orphan",
     "description": "Remove orphan files from orders table (manual trigger)",
     "enabled": true,
@@ -130,13 +208,11 @@ curl -s -X POST "${API}/policies" \
     "orphanCleanup": {
       "retentionPeriodInDays": 1
     }
-  }' | jq -r '.name // .error'
+  }'
 
 # Policy 4: Rewrite manifests
 echo "  - orders-manifests"
-curl -s -X POST "${API}/policies" \
-  -H "Content-Type: application/json" \
-  -d '{
+create_policy '{
     "name": "orders-manifests",
     "description": "Rewrite manifests for orders table (manual trigger)",
     "enabled": true,
@@ -144,7 +220,7 @@ curl -s -X POST "${API}/policies" \
     "priority": 70,
     "rewriteManifests": {
     }
-  }' | jq -r '.name // .error'
+  }'
 
 echo ""
 echo "Policies created:"

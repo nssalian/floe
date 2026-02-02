@@ -32,6 +32,11 @@ curl http://localhost:9091/metrics
 | `floe_policy_matches_total` | Policy matches |
 | `floe_active_policies` | Current active policies (gauge) |
 | `floe_running_operations` | Currently running operations (gauge) |
+| `floe_trigger_evaluations_total` | Trigger condition evaluations |
+| `floe_trigger_conditions_met_total` | Evaluations where conditions were met |
+| `floe_trigger_conditions_not_met_total` | Evaluations where conditions were not met |
+| `floe_trigger_blocked_by_interval_total` | Evaluations blocked by min interval |
+| `floe_trigger_forced_by_critical_pipeline_total` | Evaluations forced by critical pipeline |
 
 ### JVM & HTTP Metrics
 

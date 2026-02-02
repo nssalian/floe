@@ -1,37 +1,19 @@
-# Floe with Project Nessie
+# Floe Advanced Example (REST Catalog)
 #
-# Nessie provides Git-like versioning for your data lakehouse:
-# - Branch and merge data
-# - Time travel queries
-# - Audit trail of all changes
+# Adds advanced scheduler budgets, health persistence, and signal-based triggering defaults.
 #
 # Services:
 #   - Floe server (http://localhost:9091)
-#   - Nessie catalog server
+#   - Apache Iceberg REST Catalog
 #   - MinIO (S3-compatible storage)
 #   - Postgres (Floe persistence)
 #   - Livy (Spark job submission)
 #   - Trino (optional, --profile trino)
-#
-# Access:
-#   - Floe UI: http://localhost:9091
-#   - Nessie API: http://localhost:19120
-#   - MinIO Console: http://localhost:9001 (admin/password)
 
 services:
-  # Project Nessie - Git-like catalog
-  nessie:
-    image: projectnessie/nessie:0.76.0
-    container_name: nessie-server
-    ports:
-      - "19120:19120"
-    environment:
-      NESSIE_VERSION_STORE_TYPE: IN_MEMORY
-
-  # S3-compatible storage
   minio:
     image: minio/minio:latest
-    container_name: nessie-minio
+    container_name: advanced-minio
     ports:
       - "19000:9000"
       - "19001:9001"
@@ -45,10 +27,9 @@ services:
       timeout: 5s
       retries: 5
 
-  # Create S3 bucket
   mc:
     image: minio/mc:latest
-    container_name: nessie-mc
+    container_name: advanced-mc
     depends_on:
       minio:
         condition: service_healthy
@@ -60,10 +41,25 @@ services:
       exit 0;
       "
 
-  # Postgres for Floe state
+  rest:
+    image: apache/iceberg-rest-fixture:latest
+    container_name: advanced-rest
+    ports:
+      - "8181:8181"
+    environment:
+      CATALOG_WAREHOUSE: s3://warehouse/
+      CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
+      CATALOG_S3_ENDPOINT: http://minio:9000
+      CATALOG_S3_PATH__STYLE__ACCESS: "true"
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+      AWS_REGION: us-east-1
+    depends_on:
+      - mc
+
   postgres:
     image: postgres:16-alpine
-    container_name: nessie-postgres
+    container_name: advanced-postgres
     ports:
       - "5432:5432"
     environment:
@@ -78,10 +74,9 @@ services:
       timeout: 5s
       retries: 5
 
-  # Floe Server
   floe:
     image: ${FLOE_IMAGE}
-    container_name: nessie-floe
+    container_name: advanced-floe
     ports:
       - "9091:9091"
     environment:
@@ -91,18 +86,16 @@ services:
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/floe
       QUARKUS_DATASOURCE_USERNAME: floe
       QUARKUS_DATASOURCE_PASSWORD: floe
-      # Catalog - Nessie
-      FLOE_CATALOG_TYPE: NESSIE
+      # Catalog - REST
+      FLOE_CATALOG_TYPE: REST
       FLOE_CATALOG_NAME: demo
-      FLOE_CATALOG_NESSIE_URI: http://nessie:19120/api/v1
-      FLOE_CATALOG_NESSIE_REF: main
+      FLOE_CATALOG_URI: http://rest:8181
       FLOE_CATALOG_WAREHOUSE: s3://warehouse/
       # S3
       FLOE_CATALOG_S3_ENDPOINT: http://minio:9000
       FLOE_CATALOG_S3_ACCESS_KEY_ID: admin
       FLOE_CATALOG_S3_SECRET_ACCESS_KEY: password
       FLOE_CATALOG_S3_REGION: us-east-1
-      # AWS SDK needs these env vars for S3FileIO
       AWS_REGION: us-east-1
       AWS_ACCESS_KEY_ID: admin
       AWS_SECRET_ACCESS_KEY: password
@@ -110,15 +103,29 @@ services:
       FLOE_ENGINE_TYPE: ${FLOE_ENGINE_TYPE:-SPARK}
       FLOE_LIVY_URL: http://livy:8998
       FLOE_TRINO_JDBC_URL: jdbc:trino://trino:8080
-      # Health persistence
+      FLOE_TRINO_CATALOG: demo
+      # Health
+      FLOE_HEALTH_SCAN_MODE: metadata
+      FLOE_HEALTH_SAMPLE_LIMIT: "10000"
       FLOE_HEALTH_PERSISTENCE_ENABLED: "true"
-      FLOE_HEALTH_MAX_REPORTS_PER_TABLE: "50"
+      FLOE_HEALTH_MAX_REPORTS_PER_TABLE: "100"
+      # Scheduler (advanced)
+      FLOE_SCHEDULER_ENABLED: "true"
+      FLOE_SCHEDULER_CONDITION_BASED_TRIGGERING_ENABLED: "true"
+      FLOE_SCHEDULER_MAX_TABLES_PER_POLL: "10"
+      FLOE_SCHEDULER_MAX_OPERATIONS_PER_POLL: "50"
+      FLOE_SCHEDULER_MAX_BYTES_PER_HOUR: "10737418240"
+      FLOE_SCHEDULER_FAILURE_BACKOFF_THRESHOLD: "3"
+      FLOE_SCHEDULER_FAILURE_BACKOFF_HOURS: "6"
+      FLOE_SCHEDULER_ZERO_CHANGE_THRESHOLD: "5"
+      FLOE_SCHEDULER_ZERO_CHANGE_FREQUENCY_REDUCTION_PERCENT: "50"
+      FLOE_SCHEDULER_ZERO_CHANGE_MIN_INTERVAL_HOURS: "6"
       # Auth disabled for local dev
       FLOE_AUTH_ENABLED: "false"
     depends_on:
       postgres:
         condition: service_healthy
-      nessie:
+      rest:
         condition: service_started
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9091/health"]
@@ -126,10 +133,9 @@ services:
       timeout: 5s
       retries: 10
 
-  # Livy - Spark job submission
   livy:
     image: ${FLOE_LIVY_IMAGE}
-    container_name: nessie-livy
+    container_name: advanced-livy
     ports:
       - "8998:8998"
     environment:
@@ -137,21 +143,19 @@ services:
       AWS_SECRET_ACCESS_KEY: password
       AWS_REGION: us-east-1
     depends_on:
-      - nessie
+      - rest
       - minio
 
-  # Trino (optional)
   trino:
     image: trinodb/trino:479
-    container_name: nessie-trino
+    container_name: advanced-trino
     profiles: ["trino"]
     ports:
       - "8085:8080"
     environment:
       CATALOG_NAME: demo
-      CATALOG_TYPE: nessie
-      NESSIE_URI: http://nessie:19120/api/v1
-      NESSIE_REF: main
+      CATALOG_TYPE: rest
+      CATALOG_URI: http://rest:8181
       CATALOG_WAREHOUSE: s3://warehouse/
       S3_ENDPOINT: http://minio:9000
       S3_PATH_STYLE: "true"
@@ -166,37 +170,27 @@ services:
       - ../../docker/trino/catalog/iceberg.properties.template:/etc/trino/catalog/iceberg.properties.template:ro
     entrypoint: ["/usr/local/bin/entrypoint.sh"]
     depends_on:
-      - nessie
+      - rest
       - minio
 
-  # Spark (for creating test tables)
   spark:
     image: tabulario/spark-iceberg:latest
-    container_name: nessie-spark
+    container_name: advanced-spark
     profiles: ["spark"]
     ports:
       - "8888:8888"
       - "4040:4040"
     environment:
-      # Catalog config for setup-demo-tables.py
-      CATALOG_TYPE: nessie
+      CATALOG_TYPE: rest
       CATALOG_NAME: demo
-      NESSIE_URI: http://nessie:19120/api/v1
-      NESSIE_REF: main
+      CATALOG_URI: http://rest:8181
       CATALOG_WAREHOUSE: s3://warehouse/
       S3_ENDPOINT: http://minio:9000
       AWS_ACCESS_KEY_ID: admin
       AWS_SECRET_ACCESS_KEY: password
       AWS_REGION: us-east-1
-    volumes:
-      # Override default spark config to use Nessie catalog-impl instead of type=rest
-      - ../../docker/spark/spark-defaults-nessie.conf:/opt/spark/conf/spark-defaults.conf:ro
     depends_on:
-      - nessie
+      - rest
 
 volumes:
   postgres_data:
-
-networks:
-  default:
-    name: floe-nessie

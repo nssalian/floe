@@ -19,6 +19,8 @@ CATALOG_WAREHOUSE = os.environ.get("CATALOG_WAREHOUSE", "s3://warehouse/")
 S3_ENDPOINT = os.environ.get("S3_ENDPOINT", "http://minio:9000")
 S3_ACCESS_KEY = os.environ.get("AWS_ACCESS_KEY_ID", "admin")
 S3_SECRET_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY", "password")
+# Modify this value as needed to increase the number of rows / files
+ROW_MULTIPLIER = 1
 
 print(f"Configuring Spark for {CATALOG_TYPE} catalog...")
 
@@ -93,6 +95,27 @@ spark = builder.getOrCreate()
 
 print(f"Setting up Floe demo tables in {CATALOG_NAME}...")
 
+def get_table_location(catalog, namespace, table_name):
+    df = spark.sql(f"DESCRIBE TABLE EXTENDED {catalog}.{namespace}.{table_name}")
+    rows = df.filter("col_name = 'Location'").select("data_type").collect()
+    return rows[0][0] if rows else None
+
+def write_orphan_file(table_location, suffix):
+    if not table_location:
+        return
+    if table_location.startswith("s3://"):
+        table_location = "s3a://" + table_location[len("s3://"):]
+    jvm = spark._jvm
+    hadoop_conf = spark._jsc.hadoopConfiguration()
+    path = jvm.org.apache.hadoop.fs.Path(f"{table_location}/orphan-{suffix}.bin")
+    try:
+        fs = path.getFileSystem(hadoop_conf)
+        out = fs.create(path, True)
+        out.write(bytearray(b"orphan"))
+        out.close()
+    except Exception as e:
+        print(f"Skipping orphan file write ({table_location}): {e}")
+
 # Create namespace
 spark.sql(f"CREATE NAMESPACE IF NOT EXISTS {CATALOG_NAME}.test")
 
@@ -109,10 +132,10 @@ spark.sql(f"""
 """)
 
 event_types = ["click", "view", "purchase", "signup"]
-for batch in range(10):
+base_time = datetime.now() - timedelta(days=1)
+for batch in range(10 * ROW_MULTIPLIER):
     data = []
-    base_time = datetime.now() - timedelta(days=random.randint(0, 30))
-    for i in range(100):
+    for i in range(100 * ROW_MULTIPLIER):
         data.append((
             f"evt_{batch}_{i}",
             random.choice(event_types),
@@ -121,7 +144,14 @@ for batch in range(10):
         ))
     df = spark.createDataFrame(data, ["event_id", "event_type", "user_id", "event_timestamp"])
     df.writeTo(f"{CATALOG_NAME}.test.events").append()
-print(f"Created {CATALOG_NAME}.test.events (10 files, 1000 rows)")
+print(
+    f"Created {CATALOG_NAME}.test.events "
+    f"({10 * ROW_MULTIPLIER} files, {1000 * ROW_MULTIPLIER * ROW_MULTIPLIER} rows)"
+)
+events_location = get_table_location(CATALOG_NAME, "test", "events")
+if events_location:
+    for idx in range(3):
+        write_orphan_file(events_location, f"events-{idx}")
 
 # Table 2: users - with updates for delete files
 spark.sql(f"DROP TABLE IF EXISTS {CATALOG_NAME}.test.users")
@@ -135,7 +165,7 @@ spark.sql(f"""
     TBLPROPERTIES ('format-version' = '2', 'write.delete.mode' = 'merge-on-read', 'gc.enabled' = 'true')
 """)
 
-users_data = [(f"user_{i}", f"User {i}", "active", datetime.now()) for i in range(200)]
+users_data = [(f"user_{i}", f"User {i}", "active", datetime.now()) for i in range(200 * ROW_MULTIPLIER)]
 spark.createDataFrame(users_data, ["user_id", "name", "status", "updated_at"]).writeTo(f"{CATALOG_NAME}.test.users").append()
 
 spark.sql(f"""
@@ -143,9 +173,15 @@ spark.sql(f"""
     USING (SELECT 'user_1' as user_id) s ON t.user_id = s.user_id
     WHEN MATCHED THEN UPDATE SET t.status = 'inactive', t.updated_at = current_timestamp()
 """)
-print(f"Created {CATALOG_NAME}.test.users (200 rows, with delete files)")
+for i in range(2, 12):
+    spark.sql(f"""
+        MERGE INTO {CATALOG_NAME}.test.users t
+        USING (SELECT 'user_{i}' as user_id) s ON t.user_id = s.user_id
+        WHEN MATCHED THEN UPDATE SET t.status = 'inactive', t.updated_at = current_timestamp()
+    """)
+print(f"Created {CATALOG_NAME}.test.users ({200 * ROW_MULTIPLIER} rows, with delete files)")
 
-# Table 3: transactions - many snapshots
+# Table 3: transactions - many snapshots + multiple files per partition
 spark.sql(f"DROP TABLE IF EXISTS {CATALOG_NAME}.test.transactions")
 spark.sql(f"""
     CREATE TABLE {CATALOG_NAME}.test.transactions (
@@ -155,11 +191,24 @@ spark.sql(f"""
     ) USING iceberg PARTITIONED BY (days(txn_timestamp))
 """)
 
-for day in range(10):
+files_per_day = max(3, ROW_MULTIPLIER // 2)
+rows_per_file = 10 * ROW_MULTIPLIER
+for day in range(10 * ROW_MULTIPLIER):
     txn_date = datetime.now() - timedelta(days=day)
-    data = [(f"txn_{day}_{i}", round(random.uniform(10, 500), 2), txn_date) for i in range(50)]
-    spark.createDataFrame(data, ["txn_id", "amount", "txn_timestamp"]).writeTo(f"{CATALOG_NAME}.test.transactions").append()
-print(f"Created {CATALOG_NAME}.test.transactions (10 snapshots, 500 rows)")
+    for batch in range(files_per_day):
+        data = [
+            (f"txn_{day}_{batch}_{i}", round(random.uniform(10, 500), 2), txn_date)
+            for i in range(rows_per_file)
+        ]
+        spark.createDataFrame(
+            data,
+            ["txn_id", "amount", "txn_timestamp"],
+        ).writeTo(f"{CATALOG_NAME}.test.transactions").append()
+print(
+    f"Created {CATALOG_NAME}.test.transactions "
+    f"({10 * ROW_MULTIPLIER * files_per_day} snapshots, "
+    f"{10 * ROW_MULTIPLIER * files_per_day * rows_per_file} rows)"
+)
 
 # Table 4: scheduler_test - for testing scheduled operations (runs every minute)
 spark.sql(f"DROP TABLE IF EXISTS {CATALOG_NAME}.test.scheduler_test")
@@ -172,10 +221,13 @@ spark.sql(f"""
     TBLPROPERTIES ('gc.enabled' = 'true')
 """)
 
-for batch in range(5):
-    data = [(f"id_{batch}_{i}", random.randint(1, 100), datetime.now()) for i in range(20)]
+for batch in range(5 * ROW_MULTIPLIER):
+    data = [(f"id_{batch}_{i}", random.randint(1, 100), datetime.now()) for i in range(20 * ROW_MULTIPLIER)]
     spark.createDataFrame(data, ["id", "value", "ts"]).writeTo(f"{CATALOG_NAME}.test.scheduler_test").append()
-print(f"Created {CATALOG_NAME}.test.scheduler_test (5 files, 100 rows)")
+print(
+    f"Created {CATALOG_NAME}.test.scheduler_test "
+    f"({5 * ROW_MULTIPLIER} files, {100 * ROW_MULTIPLIER * ROW_MULTIPLIER} rows)"
+)
 
 # Table 5: orders - for individual policy testing
 spark.sql(f"DROP TABLE IF EXISTS {CATALOG_NAME}.test.orders")
@@ -192,10 +244,10 @@ spark.sql(f"""
 """)
 
 products = ["laptop", "phone", "tablet", "headphones", "keyboard", "mouse"]
-for batch in range(8):
+for batch in range(8 * ROW_MULTIPLIER):
     data = []
     base_time = datetime.now() - timedelta(days=random.randint(0, 14))
-    for i in range(75):
+    for i in range(75 * ROW_MULTIPLIER):
         product = random.choice(products)
         data.append((
             f"ord_{batch}_{i}",
@@ -207,7 +259,10 @@ for batch in range(8):
         ))
     df = spark.createDataFrame(data, ["order_id", "customer_id", "product", "quantity", "price", "order_timestamp"])
     df.writeTo(f"{CATALOG_NAME}.test.orders").append()
-print(f"Created {CATALOG_NAME}.test.orders (8 files, 600 rows)")
+print(
+    f"Created {CATALOG_NAME}.test.orders "
+    f"({8 * ROW_MULTIPLIER} files, {600 * ROW_MULTIPLIER * ROW_MULTIPLIER} rows)"
+)
 
 print(f"\nDemo tables ready in {CATALOG_NAME}:")
 print(f"  {CATALOG_NAME}.test.events         - full-maintenance policy (all 4 ops)")
