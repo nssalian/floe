@@ -1,5 +1,5 @@
 .PHONY: build clean start test integration-test e2e fmt \
-	example-rest example-nessie example-polaris example-hms example-lakekeeper example-gravitino \
+	example-rest example-advanced example-nessie example-polaris example-hms example-lakekeeper example-gravitino \
 	example-rest-spark example-rest-trino example-rest-spark-local example-rest-trino-local \
 	example-nessie-spark example-nessie-trino example-nessie-spark-local example-nessie-trino-local \
 	example-polaris-spark example-polaris-trino example-polaris-spark-local example-polaris-trino-local \
@@ -11,6 +11,7 @@
 FLOE_IMAGE ?= ghcr.io/nssalian/floe:latest
 FLOE_LIVY_IMAGE ?= ghcr.io/nssalian/floe-livy:latest
 SKIP_DEMO ?= 0
+SKIP_DEMO_POLICIES ?= 0
 
 build:
 	@echo "Building Floe..."
@@ -47,7 +48,7 @@ e2e:
 clean:
 	@echo "Cleaning all docker compose..."
 	@docker compose down -v 2>/dev/null || true
-	@for dir in rest-catalog nessie polaris hms lakekeeper gravitino; do \
+	@for dir in rest-catalog advanced nessie polaris hms lakekeeper gravitino; do \
 		(cd examples/$$dir && FLOE_IMAGE=$(FLOE_IMAGE) FLOE_LIVY_IMAGE=$(FLOE_LIVY_IMAGE) docker compose --profile trino --profile spark down -v 2>/dev/null) || true; \
 	done
 	@docker ps -q --filter "publish=9091" | xargs -r docker stop 2>/dev/null || true
@@ -61,6 +62,7 @@ start:
 	@echo ""
 	@echo "For end-to-end examples with Spark/Trino:"
 	@echo "  make example-rest       # REST Catalog"
+	@echo "  make example-advanced   # REST Catalog (advanced features)"
 	@echo "  make example-nessie     # Nessie"
 	@echo "  make example-polaris    # Polaris"
 	@echo "  make example-hms        # Hive Metastore"
@@ -76,7 +78,7 @@ start:
 
 # Stop all running examples
 define stop_all
-	@for dir in rest-catalog nessie polaris hms lakekeeper gravitino; do \
+	@for dir in rest-catalog advanced nessie polaris hms lakekeeper gravitino; do \
 		(cd examples/$$dir && docker compose --profile trino --profile spark stop 2>/dev/null) || true; \
 	done
 endef
@@ -94,7 +96,7 @@ define start_spark
 		sleep 10; \
 		docker cp scripts/setup-demo-tables.py $$SPARK:/tmp/setup-demo-tables.py; \
 		docker exec $$SPARK spark-submit --master 'local[*]' /tmp/setup-demo-tables.py; \
-		./scripts/setup-demo-policies.sh; \
+		if [ "$(SKIP_DEMO_POLICIES)" != "1" ]; then ./scripts/setup-demo-policies.sh; fi; \
 	fi
 	@echo ""
 	@echo "Floe: http://localhost:9091"
@@ -113,7 +115,7 @@ define start_trino
 		sleep 10; \
 		docker cp scripts/setup-demo-tables.py $$SPARK:/tmp/setup-demo-tables.py; \
 		docker exec $$SPARK spark-submit --master 'local[*]' /tmp/setup-demo-tables.py; \
-		./scripts/setup-demo-policies.sh; \
+		if [ "$(SKIP_DEMO_POLICIES)" != "1" ]; then ./scripts/setup-demo-policies.sh; fi; \
 	fi
 	@echo ""
 	@echo "Floe: http://localhost:9091"
@@ -122,6 +124,15 @@ endef
 # Examples - REST Catalog
 
 example-rest: example-rest-spark
+
+example-advanced: example-advanced-spark
+
+example-advanced-spark: SKIP_DEMO_POLICIES=1
+example-advanced-spark:
+	$(call start_spark,Advanced REST Catalog,advanced,$(FLOE_IMAGE),$(FLOE_LIVY_IMAGE))
+	@if [ "$(SKIP_DEMO)" != "1" ]; then \
+		./scripts/setup-advanced-policy.sh; \
+	fi
 
 example-rest-spark:
 	$(call start_spark,REST Catalog,rest-catalog,$(FLOE_IMAGE),$(FLOE_LIVY_IMAGE))

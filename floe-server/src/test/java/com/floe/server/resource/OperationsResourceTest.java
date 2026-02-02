@@ -253,10 +253,15 @@ class OperationsResourceTest {
                 tableName,
                 null, // policyName
                 null, // policyId
+                null, // engineType
+                null, // executionId
+                null, // scheduleId
+                null, // policyVersion
                 status,
                 now, // startedAt
                 status.isTerminal() ? now : null, // completedAt
                 null, // results
+                null, // normalizedMetrics
                 null, // errorMessage
                 now // createdAt
                 );

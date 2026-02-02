@@ -22,7 +22,13 @@ public record UpdatePolicyRequest(
         OrphanCleanupConfigDto orphanCleanup,
         ScheduleConfigDto orphanCleanupSchedule,
         RewriteManifestsConfigDto rewriteManifests,
-        ScheduleConfigDto rewriteManifestsSchedule) {
+        ScheduleConfigDto rewriteManifestsSchedule,
+
+        // Health thresholds - null means no change
+        HealthThresholdsDto healthThresholds,
+
+        // Trigger conditions - null means no change
+        TriggerConditionsDto triggerConditions) {
     /** Apply updates to existing policy, preserving unchanged fields. */
     public MaintenancePolicy applyTo(MaintenancePolicy existing) {
         return new MaintenancePolicy(
@@ -52,6 +58,12 @@ public record UpdatePolicyRequest(
                         ? rewriteManifestsSchedule.toConfig()
                         : existing.rewriteManifestsSchedule(),
                 priority != null ? priority : existing.priority(),
+                healthThresholds != null
+                        ? healthThresholds.toThresholds()
+                        : existing.healthThresholds(),
+                triggerConditions != null
+                        ? triggerConditions.toConditions()
+                        : existing.triggerConditions(),
                 tags != null ? tags : existing.tags(),
                 existing.createdAt(),
                 Instant.now() // updatedAt

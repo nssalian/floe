@@ -12,6 +12,7 @@ Floe connects to Iceberg catalogs to discover tables and execute maintenance.
 | [Hive Metastore](hms.md)         | `HIVE` |
 | [Lakekeeper](lakekeeper.md)      | `LAKEKEEPER` |
 | [Apache Gravitino](gravitino.md) | `GRAVITINO` |
+| [DataHub](datahub.md)            | `DATAHUB` |
 
 ## Quick Start with Examples
 

@@ -7,6 +7,10 @@ import com.floe.core.catalog.PostgresCatalogConfigStore;
 import com.floe.core.engine.ExecutionEngine;
 import com.floe.core.event.EventEmitter;
 import com.floe.core.event.LoggingEventEmitter;
+import com.floe.core.health.InMemoryTableHealthStore;
+import com.floe.core.health.PostgresTableHealthStore;
+import com.floe.core.health.TableHealthStore;
+import com.floe.core.metrics.OperationMetricsEmitter;
 import com.floe.core.operation.InMemoryOperationStore;
 import com.floe.core.operation.OperationStore;
 import com.floe.core.operation.PostgresOperationStore;
@@ -20,6 +24,7 @@ import com.floe.engine.spark.SparkEngineConfig;
 import com.floe.engine.spark.SparkExecutionEngine;
 import com.floe.engine.trino.TrinoEngineConfig;
 import com.floe.engine.trino.TrinoExecutionEngine;
+import com.floe.server.metrics.FloeMetrics;
 import com.floe.server.scheduler.SchedulerConfig;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
@@ -39,6 +44,8 @@ public class FloeProducers {
     private static final Logger LOG = LoggerFactory.getLogger(FloeProducers.class);
 
     @Inject FloeConfigProvider configProvider;
+
+    @Inject HealthConfig healthConfig;
 
     @Inject SchedulerConfig schedulerConfig;
 
@@ -137,6 +144,37 @@ public class FloeProducers {
             }
             case "POSTGRES" -> {
                 var store = new PostgresCatalogConfigStore(dataSource);
+                store.initializeSchema();
+                yield store;
+            }
+            default ->
+                    throw new IllegalArgumentException(
+                            "Unsupported store type: "
+                                    + storeType
+                                    + ". Supported: MEMORY, POSTGRES");
+        };
+    }
+
+    @Produces
+    @Singleton
+    public TableHealthStore tableHealthStore() {
+        String storeType = config().store().type();
+        boolean enabled = healthConfig.persistenceEnabled();
+
+        if (!enabled) {
+            LOG.info("Health report persistence disabled");
+            return new InMemoryTableHealthStore(); // Non-persisting fallback
+        }
+
+        LOG.info("Initializing table health store: {}", storeType);
+
+        return switch (storeType.toUpperCase(Locale.ROOT)) {
+            case "MEMORY" -> {
+                LOG.warn("Using in-memory health store - data will be lost on restart!");
+                yield new InMemoryTableHealthStore();
+            }
+            case "POSTGRES" -> {
+                var store = new PostgresTableHealthStore(dataSource);
                 store.initializeSchema();
                 yield store;
             }
@@ -253,9 +291,19 @@ public class FloeProducers {
             PolicyStore policyStore,
             PolicyMatcher policyMatcher,
             ExecutionEngine executionEngine,
-            OperationStore operationStore) {
+            OperationStore operationStore,
+            FloeMetrics metrics) {
+        OperationMetricsEmitter emitter =
+                (operationType, status, duration) ->
+                        metrics.recordOperationExecution(operationType, status, duration);
         return new MaintenanceOrchestrator(
-                policyStore, policyMatcher, executionEngine, operationStore);
+                policyStore,
+                policyMatcher,
+                executionEngine,
+                operationStore,
+                java.util.concurrent.Executors.newFixedThreadPool(4),
+                new com.floe.core.orchestrator.MaintenancePlanner(),
+                emitter);
     }
 
     // Execution Engine Bean

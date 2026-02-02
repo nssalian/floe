@@ -33,6 +33,8 @@ class UpdatePolicyRequestTest {
                 null,
                 null,
                 10,
+                null, // healthThresholds
+                null, // triggerConditions
                 Map.of("env", "prod"),
                 createdAt,
                 updatedAt);
@@ -57,7 +59,10 @@ class UpdatePolicyRequestTest {
                         null,
                         null,
                         null,
-                        null);
+                        null,
+                        null, // healthThresholds
+                        null // triggerConditions
+                        );
 
         MaintenancePolicy updated = request.applyTo(existing);
 
@@ -91,7 +96,10 @@ class UpdatePolicyRequestTest {
                         null,
                         null,
                         null,
-                        null);
+                        null,
+                        null, // healthThresholds
+                        null // triggerConditions
+                        );
 
         MaintenancePolicy updated = request.applyTo(existing);
 
@@ -139,7 +147,10 @@ class UpdatePolicyRequestTest {
                         null,
                         null,
                         null,
-                        null);
+                        null,
+                        null, // healthThresholds
+                        null // triggerConditions
+                        );
 
         MaintenancePolicy updated = request.applyTo(existing);
 
@@ -167,7 +178,10 @@ class UpdatePolicyRequestTest {
                         null,
                         null,
                         null,
-                        null);
+                        null,
+                        null, // healthThresholds
+                        null // triggerConditions
+                        );
 
         MaintenancePolicy updated = request.applyTo(existing);
 
@@ -354,7 +368,10 @@ class UpdatePolicyRequestTest {
                         null,
                         null,
                         null,
-                        null);
+                        null,
+                        null, // healthThresholds
+                        null // triggerConditions
+                        );
 
         MaintenancePolicy updated = request.applyTo(existing);
 
@@ -379,7 +396,10 @@ class UpdatePolicyRequestTest {
                         null,
                         null,
                         null,
-                        null);
+                        null,
+                        null, // healthThresholds
+                        null // triggerConditions
+                        );
         UpdatePolicyRequest request2 =
                 new UpdatePolicyRequest(
                         "Name",
@@ -395,7 +415,10 @@ class UpdatePolicyRequestTest {
                         null,
                         null,
                         null,
-                        null);
+                        null,
+                        null, // healthThresholds
+                        null // triggerConditions
+                        );
 
         assertEquals(request1, request2);
         assertEquals(request1.hashCode(), request2.hashCode());

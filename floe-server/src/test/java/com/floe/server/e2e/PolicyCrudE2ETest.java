@@ -148,6 +148,39 @@ class PolicyCrudE2ETest extends BaseE2ETest {
         }
 
         @Test
+        @DisplayName("should create policy with health thresholds")
+        void shouldCreatePolicyWithHealthThresholds() {
+            String policyJson =
+                    """
+                {
+                    "name": "test-policy-thresholds",
+                    "tablePattern": "prod.analytics.*",
+                    "enabled": true,
+                    "priority": 20,
+                    "healthThresholds": {
+                        "deleteFileRatioWarning": 0.12,
+                        "deleteFileRatioCritical": 0.30,
+                        "partitionSkewWarning": 4.0,
+                        "partitionSkewCritical": 12.0
+                    }
+                }
+                """;
+
+            Response response = givenJson().body(policyJson).post(POLICIES_PATH);
+
+            response.then()
+                    .statusCode(201)
+                    .body("name", equalTo("test-policy-thresholds"))
+                    .body("healthThresholds.deleteFileRatioWarning", equalTo(0.12f))
+                    .body("healthThresholds.deleteFileRatioCritical", equalTo(0.30f))
+                    .body("healthThresholds.partitionSkewWarning", equalTo(4.0f))
+                    .body("healthThresholds.partitionSkewCritical", equalTo(12.0f));
+
+            String policyId = response.jsonPath().getString("id");
+            givenJson().delete(POLICIES_PATH + "/" + policyId).then().statusCode(204);
+        }
+
+        @Test
         @DisplayName("should reject policy without name")
         void shouldRejectPolicyWithoutName() {
             String policyJson =

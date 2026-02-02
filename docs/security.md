@@ -137,7 +137,7 @@ curl http://localhost:9091/api/v1/auth/keys \
 ### Disable/Enable Key
 
 ```bash
-curl -X PUT http://localhost:9091/api/v1/auth/keys/<id> \
+curl -X PUT http://localhost:9091/api/v1/auth/keys/{id} \
   -H "X-API-Key: <admin-key>" \
   -H "Content-Type: application/json" \
   -d '{"enabled": false}'
@@ -146,7 +146,7 @@ curl -X PUT http://localhost:9091/api/v1/auth/keys/<id> \
 ### Delete Key
 
 ```bash
-curl -X DELETE http://localhost:9091/api/v1/auth/keys/<id> \
+curl -X DELETE http://localhost:9091/api/v1/auth/keys/{id} \
   -H "X-API-Key: <admin-key>"
 ```
 

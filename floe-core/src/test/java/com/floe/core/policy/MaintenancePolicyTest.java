@@ -237,6 +237,8 @@ class MaintenancePolicyTest {
                         null,
                         null,
                         5,
+                        null, // healthThresholds
+                        null, // triggerConditions
                         Map.of(),
                         now,
                         now);
@@ -256,6 +258,8 @@ class MaintenancePolicyTest {
                         null,
                         null,
                         5,
+                        null, // healthThresholds
+                        null, // triggerConditions
                         Map.of(),
                         now,
                         now);

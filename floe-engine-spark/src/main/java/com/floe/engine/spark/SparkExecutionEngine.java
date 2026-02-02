@@ -255,6 +255,7 @@ public class SparkExecutionEngine implements ExecutionEngine {
         args.add(table.namespace());
         args.add(table.getTableName());
         args.add(serializeOperationConfig(operation));
+        args.add(context.executionId());
 
         // Spark configuration
         ObjectNode conf = requestBody.putObject("conf");
@@ -339,12 +340,15 @@ public class SparkExecutionEngine implements ExecutionEngine {
 
             switch (state) {
                 case "success":
-                    return new BatchResult(true, Map.of("batchId", batchId), null, "");
+                    String logs = fetchBatchLogs(batchId);
+                    Map<String, Object> metrics = extractMetricsFromLogs(logs);
+                    metrics.put("batchId", batchId);
+                    return new BatchResult(true, metrics, null, logs);
                 case "dead":
                 case "error":
                 case "killed":
-                    String logs = fetchBatchLogs(batchId);
-                    return new BatchResult(false, Map.of(), "Batch " + state, logs);
+                    String failureLogs = fetchBatchLogs(batchId);
+                    return new BatchResult(false, Map.of(), "Batch " + state, failureLogs);
                 case "running":
                 case "starting":
                     Thread.sleep(config.pollIntervalMs());
@@ -405,6 +409,35 @@ public class SparkExecutionEngine implements ExecutionEngine {
 
     private String serializeOperationConfig(MaintenanceOperation operation) throws Exception {
         return objectMapper.writeValueAsString(operation);
+    }
+
+    Map<String, Object> extractMetricsFromLogs(String logs) {
+        if (logs == null || logs.isBlank()) {
+            return new HashMap<>();
+        }
+        Map<String, Object> metrics = new HashMap<>();
+        String[] lines = logs.split("\n");
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            try {
+                JsonNode node = objectMapper.readTree(trimmed);
+                if (node.has("metricsType")
+                        && "floe".equalsIgnoreCase(node.get("metricsType").asText())
+                        && node.has("metrics")
+                        && node.get("metrics").isObject()) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> parsed =
+                            objectMapper.convertValue(node.get("metrics"), Map.class);
+                    metrics.putAll(parsed);
+                }
+            } catch (Exception e) {
+                // Ignore non-JSON log lines
+            }
+        }
+        return metrics;
     }
 
     private String getStackTrace(Exception e) {

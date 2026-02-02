@@ -3,8 +3,10 @@ package com.floe.spark.job;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Iterables;
 import java.io.Serial;
 import java.util.Locale;
+import java.util.Map;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.actions.ExpireSnapshots;
@@ -41,7 +43,8 @@ public final class MaintenanceJob {
         if (args == null || args.length < EXPECTED_ARG_COUNT) {
             return null;
         }
-        return new JobArgs(args[0], args[1], args[2], args[3], args[4]);
+        String executionId = args.length > EXPECTED_ARG_COUNT ? args[5] : null;
+        return new JobArgs(args[0], args[1], args[2], args[3], args[4], executionId);
     }
 
     /**
@@ -67,7 +70,17 @@ public final class MaintenanceJob {
             String catalogName,
             String namespace,
             String tableName,
-            String configJson) {
+            String configJson,
+            String executionId) {
+        JobArgs(
+                String operationType,
+                String catalogName,
+                String namespace,
+                String tableName,
+                String configJson) {
+            this(operationType, catalogName, namespace, tableName, configJson, null);
+        }
+
         /** Returns the full table name in {namespace.table} format. */
         String fullTableName() {
             return namespace + "." + tableName;
@@ -82,13 +95,15 @@ public final class MaintenanceJob {
         String namespace = args[2];
         String tableName = args[3];
         String configJson = args[4];
+        String executionId = args.length > EXPECTED_ARG_COUNT ? args[5] : null;
 
         String fullTableName = namespace + "." + tableName;
 
         logJobHeader(operationType, fullTableName, configJson);
 
         try (SparkSession spark = createSparkSession(operationType, tableName)) {
-            runMaintenanceJob(spark, catalogName, fullTableName, operationType, configJson);
+            runMaintenanceJob(
+                    spark, catalogName, fullTableName, operationType, configJson, executionId);
             logJobCompletion();
         }
     }
@@ -109,13 +124,14 @@ public final class MaintenanceJob {
             String catalogName,
             String fullTableName,
             String operationType,
-            String configJson) {
+            String configJson,
+            String executionId) {
         logCatalogInfo(spark, catalogName);
 
         Table table = loadTable(spark, fullTableName);
         JsonNode config = parseConfig(configJson);
 
-        executeOperation(spark, table, operationType, config);
+        executeOperation(spark, table, operationType, config, executionId);
     }
 
     private static Table loadTable(SparkSession spark, String fullTableName) {
@@ -173,12 +189,16 @@ public final class MaintenanceJob {
     }
 
     private static void executeOperation(
-            SparkSession spark, Table table, String operationType, JsonNode config) {
+            SparkSession spark,
+            Table table,
+            String operationType,
+            JsonNode config,
+            String executionId) {
         switch (operationType) {
-            case "REWRITE_DATA_FILES" -> runRewriteDataFiles(spark, table, config);
-            case "EXPIRE_SNAPSHOTS" -> runExpireSnapshots(spark, table, config);
-            case "REWRITE_MANIFESTS" -> runRewriteManifests(spark, table, config);
-            case "ORPHAN_CLEANUP" -> runOrphanCleanup(spark, table, config);
+            case "REWRITE_DATA_FILES" -> runRewriteDataFiles(spark, table, config, executionId);
+            case "EXPIRE_SNAPSHOTS" -> runExpireSnapshots(spark, table, config, executionId);
+            case "REWRITE_MANIFESTS" -> runRewriteManifests(spark, table, config, executionId);
+            case "ORPHAN_CLEANUP" -> runOrphanCleanup(spark, table, config, executionId);
             default -> throw new IllegalArgumentException("Unknown operation: " + operationType);
         }
     }
@@ -189,7 +209,8 @@ public final class MaintenanceJob {
         }
     }
 
-    private static void runRewriteDataFiles(SparkSession spark, Table table, JsonNode config) {
+    private static void runRewriteDataFiles(
+            SparkSession spark, Table table, JsonNode config, String executionId) {
         if (LOG.isInfoEnabled()) {
             LOG.info("Running REWRITE_DATA_FILES (compaction)...");
         }
@@ -199,9 +220,21 @@ public final class MaintenanceJob {
 
         configureRewriteDataFiles(action, config);
 
+        long startTime = System.currentTimeMillis();
         RewriteDataFiles.Result result = action.execute();
+        long durationMs = System.currentTimeMillis() - startTime;
 
         logRewriteDataFilesResult(result);
+        emitMetrics(
+                buildMetrics(
+                        Map.of(
+                                "filesRewritten",
+                                result.rewrittenDataFilesCount(),
+                                "bytesRewritten",
+                                result.rewrittenBytesCount(),
+                                "durationMs",
+                                durationMs),
+                        executionId));
     }
 
     private static void configureRewriteDataFiles(RewriteDataFiles action, JsonNode config) {
@@ -280,7 +313,8 @@ public final class MaintenanceJob {
         }
     }
 
-    private static void runExpireSnapshots(SparkSession spark, Table table, JsonNode config) {
+    private static void runExpireSnapshots(
+            SparkSession spark, Table table, JsonNode config, String executionId) {
         if (LOG.isInfoEnabled()) {
             LOG.info("Running EXPIRE_SNAPSHOTS...");
         }
@@ -290,9 +324,29 @@ public final class MaintenanceJob {
 
         configureExpireSnapshots(action, config);
 
+        int beforeSnapshots = Iterables.size(table.snapshots());
+        long startTime = System.currentTimeMillis();
         ExpireSnapshots.Result result = action.execute();
+        long durationMs = System.currentTimeMillis() - startTime;
+        table.refresh();
+        int afterSnapshots = Iterables.size(table.snapshots());
+        long snapshotsExpired = Math.max(0, beforeSnapshots - afterSnapshots);
+        long deleteFilesRemoved =
+                result.deletedEqualityDeleteFilesCount() + result.deletedPositionDeleteFilesCount();
 
         logExpireSnapshotsResult(result);
+        emitMetrics(
+                buildMetrics(
+                        Map.of(
+                                "snapshotsExpired",
+                                snapshotsExpired,
+                                "deleteFilesRemoved",
+                                deleteFilesRemoved,
+                                "manifestsRewritten",
+                                result.deletedManifestsCount(),
+                                "durationMs",
+                                durationMs),
+                        executionId));
     }
 
     private static void configureExpireSnapshots(ExpireSnapshots action, JsonNode config) {
@@ -333,7 +387,8 @@ public final class MaintenanceJob {
         }
     }
 
-    private static void runRewriteManifests(SparkSession spark, Table table, JsonNode config) {
+    private static void runRewriteManifests(
+            SparkSession spark, Table table, JsonNode config, String executionId) {
         if (LOG.isInfoEnabled()) {
             LOG.info("Running REWRITE_MANIFESTS...");
         }
@@ -343,9 +398,19 @@ public final class MaintenanceJob {
 
         configureRewriteManifests(action, config);
 
+        long startTime = System.currentTimeMillis();
         var result = action.execute();
+        long durationMs = System.currentTimeMillis() - startTime;
 
         logRewriteManifestsResult(result);
+        emitMetrics(
+                buildMetrics(
+                        Map.of(
+                                "manifestsRewritten",
+                                countManifests(result.rewrittenManifests()),
+                                "durationMs",
+                                durationMs),
+                        executionId));
     }
 
     private static void configureRewriteManifests(
@@ -612,7 +677,8 @@ public final class MaintenanceJob {
         }
     }
 
-    private static void runOrphanCleanup(SparkSession spark, Table table, JsonNode config) {
+    private static void runOrphanCleanup(
+            SparkSession spark, Table table, JsonNode config, String executionId) {
         if (LOG.isInfoEnabled()) {
             LOG.info("Running ORPHAN_CLEANUP...");
         }
@@ -622,18 +688,35 @@ public final class MaintenanceJob {
 
         configureOrphanCleanup(action, config);
 
+        long startTime = System.currentTimeMillis();
         var result = action.execute();
+        long durationMs = System.currentTimeMillis() - startTime;
 
         logOrphanCleanupResult(result);
+        emitMetrics(
+                buildMetrics(
+                        Map.of(
+                                "orphanFilesRemoved",
+                                countStrings(result.orphanFileLocations()),
+                                "durationMs",
+                                durationMs),
+                        executionId));
     }
 
     private static void configureOrphanCleanup(
             org.apache.iceberg.actions.DeleteOrphanFiles action, JsonNode config) {
+        if (!config.has("olderThan") && config.has("retentionPeriodInDays")) {
+            JsonNode retentionNode = config.get("retentionPeriodInDays");
+            if (!retentionNode.isNull()) {
+                long retentionMs = parseDurationMillis(retentionNode);
+                action.olderThan(System.currentTimeMillis() - retentionMs);
+            }
+        }
         // Duration is serialized as seconds (decimal) by Jackson JavaTimeModule
         if (config.has("olderThan")) {
             JsonNode olderThanNode = config.get("olderThan");
             if (!olderThanNode.isNull()) {
-                long ageMs = (long) (olderThanNode.asDouble() * 1000);
+                long ageMs = parseDurationMillis(olderThanNode);
                 action.olderThan(System.currentTimeMillis() - ageMs);
             }
         }
@@ -677,6 +760,24 @@ public final class MaintenanceJob {
         }
     }
 
+    private static long parseDurationMillis(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return 0;
+        }
+        if (node.isNumber()) {
+            return (long) (node.asDouble() * 1000);
+        }
+        String text = node.asText();
+        if (text == null || text.isBlank()) {
+            return 0;
+        }
+        try {
+            return java.time.Duration.parse(text).toMillis();
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
     private static void logOrphanCleanupResult(
             org.apache.iceberg.actions.DeleteOrphanFiles.Result result) {
         if (LOG.isInfoEnabled()) {
@@ -686,6 +787,49 @@ public final class MaintenanceJob {
                 LOG.info("  - Deleted Orphan File: {}", filePath);
             }
         }
+    }
+
+    private static Map<String, Object> buildMetrics(
+            Map<String, Object> metrics, String executionId) {
+        Map<String, Object> merged = new java.util.HashMap<>(metrics);
+        merged.putIfAbsent("engineType", "spark");
+        if (executionId != null && !executionId.isBlank()) {
+            merged.put("executionId", executionId);
+        }
+        return merged;
+    }
+
+    static String formatMetricsJson(Map<String, Object> metrics) throws JsonProcessingException {
+        ObjectMapper mapper = new ObjectMapper();
+        return mapper.writeValueAsString(
+                java.util.Map.of("metricsType", "floe", "metrics", metrics));
+    }
+
+    private static void emitMetrics(Map<String, Object> metrics) {
+        try {
+            String json = formatMetricsJson(metrics);
+            System.out.println(json);
+        } catch (Exception e) {
+            if (LOG.isWarnEnabled()) {
+                LOG.warn("Failed to emit metrics JSON: {}", e.getMessage());
+            }
+        }
+    }
+
+    private static int countManifests(Iterable<ManifestFile> manifests) {
+        int count = 0;
+        for (ManifestFile ignored : manifests) {
+            count++;
+        }
+        return count;
+    }
+
+    private static int countStrings(Iterable<String> items) {
+        int count = 0;
+        for (String ignored : items) {
+            count++;
+        }
+        return count;
     }
 
     public static class MaintenanceJobException extends RuntimeException {

@@ -32,6 +32,8 @@ class GravitinoCatalogClientIT {
     private static final String MINIO_SECRET_KEY = "password";
     private static final String MINIO_BUCKET = "warehouse";
     private static final String CATALOG_NAME = "demo";
+    private static final String DEFAULT_LOCAL_URI = "http://localhost:9001/iceberg/";
+    private static final String DEFAULT_LOCAL_S3_ENDPOINT = "http://localhost:19000";
 
     private static Network network;
     private static GenericContainer<?> minio;
@@ -40,9 +42,28 @@ class GravitinoCatalogClientIT {
     private static String catalogUri;
     private static String s3Endpoint;
     private static boolean containersStarted = false;
+    private static boolean usingLocalStack = false;
+    private static String s3AccessKey = MINIO_ACCESS_KEY;
+    private static String s3SecretKey = MINIO_SECRET_KEY;
 
     @BeforeAll
     static void setUp() {
+        if (useLocalStack()) {
+            catalogUri = System.getenv().getOrDefault("FLOE_IT_GRAVITINO_URI", DEFAULT_LOCAL_URI);
+            s3Endpoint =
+                    System.getenv()
+                            .getOrDefault(
+                                    "FLOE_IT_GRAVITINO_S3_ENDPOINT", DEFAULT_LOCAL_S3_ENDPOINT);
+            s3AccessKey =
+                    System.getenv().getOrDefault("FLOE_IT_GRAVITINO_ACCESS_KEY", MINIO_ACCESS_KEY);
+            s3SecretKey =
+                    System.getenv().getOrDefault("FLOE_IT_GRAVITINO_SECRET_KEY", MINIO_SECRET_KEY);
+            usingLocalStack = true;
+            containersStarted = true;
+            LOG.info("Using local Gravitino stack at {}", catalogUri);
+            return;
+        }
+
         if (!isDockerAvailable()) {
             LOG.warn("Docker not available, skipping integration tests");
             return;
@@ -146,6 +167,9 @@ class GravitinoCatalogClientIT {
 
     @AfterAll
     static void tearDown() {
+        if (usingLocalStack) {
+            return;
+        }
         if (gravitino != null) {
             gravitino.stop();
         }
@@ -237,11 +261,18 @@ class GravitinoCatalogClientIT {
                                 "s3.endpoint",
                                 s3Endpoint,
                                 "s3.access-key-id",
-                                MINIO_ACCESS_KEY,
+                                s3AccessKey,
                                 "s3.secret-access-key",
-                                MINIO_SECRET_KEY,
+                                s3SecretKey,
                                 "s3.path-style-access",
                                 "true"))
                 .build();
+    }
+
+    private static boolean useLocalStack() {
+        String useLocal = System.getenv("FLOE_IT_USE_LOCAL_STACK");
+        String uri = System.getenv("FLOE_IT_GRAVITINO_URI");
+        return (Boolean.parseBoolean(useLocal != null ? useLocal : "false")
+                || (uri != null && !uri.isBlank()));
     }
 }

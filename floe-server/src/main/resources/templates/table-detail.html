@@ -190,5 +190,196 @@
             </p>
         </div>
     </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200">
+                <h3 class="text-lg font-semibold text-slate-900">Auto-Mode Status</h3>
+                <p class="mt-1 text-sm text-slate-500">
+                    Scheduler decisions based on recent health and outcomes.
+                </p>
+            </div>
+            <div class="px-6 py-4 space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-xs text-slate-500">Scheduler</p>
+                        <p class="text-sm font-medium text-slate-900">
+                            {table.autoMode.schedulerStatus}
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500">Debt score</p>
+                        <p class="text-sm font-medium text-slate-900">
+                            {table.autoMode.debtScoreFormatted}
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500">Throttling</p>
+                        <p class="text-sm font-medium text-slate-900">
+                            {table.autoMode.throttlingStatus}
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500">Backoff</p>
+                        <p class="text-sm font-medium text-slate-900">
+                            {table.autoMode.backoffStatus}
+                        </p>
+                    </div>
+                </div>
+
+                {#if table.autoMode.breakdown.size > 0}
+                <div class="border-t border-slate-100 pt-4">
+                    <p class="text-xs text-slate-500 mb-2">Debt breakdown</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {#for item in table.autoMode.breakdown}
+                        <div class="flex items-center justify-between text-sm text-slate-700">
+                            <span>{item.label}</span>
+                            <span class="font-medium text-slate-900">{item.value}</span>
+                        </div>
+                        {/for}
+                    </div>
+                </div>
+                {/if}
+
+                {#if table.schedules.size > 0}
+                <div class="border-t border-slate-100 pt-4">
+                    <p class="text-xs text-slate-500 mb-2">Scheduling decisions</p>
+                    <div class="space-y-2">
+                        {#for schedule in table.schedules}
+                        <div class="flex items-center justify-between text-sm">
+                            <div>
+                                <div class="font-medium text-slate-900">{schedule.operation}</div>
+                                <div class="text-xs text-slate-500">{schedule.schedule}</div>
+                            </div>
+                            <span class="text-xs text-slate-500">{schedule.status}</span>
+                        </div>
+                        {/for}
+                    </div>
+                </div>
+                {/if}
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200">
+                <h3 class="text-lg font-semibold text-slate-900">
+                    Assessment Settings
+                </h3>
+                <p class="mt-1 text-sm text-slate-500">
+                    Scan mode and thresholds used for health scoring.
+                </p>
+            </div>
+            <div class="px-6 py-4 space-y-4">
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-slate-500">Scan mode</span>
+                    <span class="font-medium text-slate-900 capitalize">
+                        {table.scanMode.mode}
+                    </span>
+                </div>
+                <div class="text-xs text-slate-500">{table.scanMode.detail}</div>
+                {#if table.scanMode.caveat}
+                <div class="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-md px-3 py-2">
+                    {table.scanMode.caveat}
+                </div>
+                {/if}
+                <div class="border-t border-slate-100 pt-4">
+                    <p class="text-xs text-slate-500 mb-2">{table.thresholds.sourceLabel}</p>
+                    <div class="space-y-2">
+                        {#for item in table.thresholds.items}
+                        <div class="flex items-center justify-between text-xs text-slate-600">
+                            <span>{item.label}</span>
+                            <span class="text-slate-900">
+                                {item.warning} / {item.critical}
+                            </span>
+                        </div>
+                        {/for}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {! Health trend !} {#include "health-trend" /} {! Recommended maintenance !}
+    <div
+        class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"
+    >
+        <div class="px-6 py-4 border-b border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-900">
+                Recommended Maintenance
+            </h3>
+            <p class="mt-1 text-sm text-slate-500">
+                Based on the latest health assessment.
+            </p>
+            {#if table.matchedPolicyName}
+            <p class="mt-1 text-xs text-slate-400">
+                Policy: {table.matchedPolicyName}
+            </p>
+            {#else}
+            <p class="mt-1 text-xs text-slate-400">
+                No matching policy. Create a policy to enable one-click triggers.
+            </p>
+            {/if}
+        </div>
+        <div class="divide-y divide-slate-200">
+            {#if table.recommendations.empty}
+            <div class="px-6 py-6 text-sm text-slate-500">
+                No recommendations at this time.
+            </div>
+            {#else} {#for rec in table.recommendations}
+            <div class="px-6 py-4 flex items-center justify-between gap-4">
+                <div>
+                    <div class="text-sm font-medium text-slate-900 capitalize">
+                        {rec.operationType}
+                    </div>
+                    <div class="text-xs text-slate-500">{rec.reason}</div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span
+                        class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 capitalize"
+                    >
+                        {rec.severity}
+                    </span>
+                    <button
+                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-floe-600 hover:bg-floe-700 rounded-md disabled:bg-slate-300 disabled:text-slate-600 disabled:cursor-not-allowed"
+                        data-trigger-endpoint="/api/v1/maintenance/trigger"
+                        data-catalog="{table.catalog}"
+                        data-namespace="{table.namespace}"
+                        data-table="{table.name}"
+                        data-policy-name="{table.matchedPolicyName ?: ''}"
+                        {#if !table.matchedPolicyName}disabled{/if}
+                    >
+                        Trigger
+                    </button>
+                </div>
+            </div>
+            {/for} {/if}
+        </div>
+    </div>
 </div>
+<script>
+    (() => {
+        const buttons = document.querySelectorAll("[data-trigger-endpoint]");
+        if (!buttons.length) return;
+
+        buttons.forEach((button) => {
+            button.addEventListener("click", () => {
+                const payload = {
+                    catalog: button.dataset.catalog,
+                    namespace: button.dataset.namespace,
+                    table: button.dataset.table,
+                };
+                if (button.dataset.policyName) {
+                    payload.policyName = button.dataset.policyName;
+                }
+                fetch(button.dataset.triggerEndpoint, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(payload),
+                }).catch(() => {});
+            });
+        });
+    })();
+</script>
 {/content} {/include}

@@ -8,6 +8,7 @@ import com.floe.core.orchestrator.OrchestratorResult;
 import com.floe.server.api.TriggerRequest;
 import com.floe.server.api.TriggerResponse;
 import com.floe.server.auth.Secured;
+import com.floe.server.health.HealthReportCache;
 import com.floe.server.metrics.FloeMetrics;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -28,6 +29,8 @@ public class MaintenanceResource {
     @Inject MaintenanceOrchestrator orchestrator;
 
     @Inject FloeMetrics metrics;
+
+    @Inject HealthReportCache healthReportCache;
 
     /**
      * Trigger policy-driven maintenance for a table.
@@ -82,6 +85,9 @@ public class MaintenanceResource {
             // Record maintenance trigger
             metrics.recordMaintenanceTriggered();
             metrics.incrementRunningOperations();
+
+            healthReportCache.invalidateTable(
+                    request.catalog(), request.namespace(), request.table());
 
             OrchestratorResult result;
 

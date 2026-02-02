@@ -2,6 +2,7 @@ package com.floe.core.operation;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -14,10 +15,15 @@ import java.util.UUID;
  * @param tableName table name
  * @param policyName policy that triggered this operation
  * @param policyId policy ID
+ * @param engineType execution engine type
+ * @param executionId execution identifier
+ * @param scheduleId schedule identifier
+ * @param policyVersion policy version identifier
  * @param status current status
  * @param startedAt when operation started
  * @param completedAt when operation completed
  * @param results operation results
+ * @param normalizedMetrics normalized metrics snapshot
  * @param errorMessage error message if failed
  * @param createdAt when record was created
  */
@@ -28,10 +34,15 @@ public record OperationRecord(
         String tableName,
         String policyName,
         UUID policyId,
+        String engineType,
+        String executionId,
+        String scheduleId,
+        String policyVersion,
         OperationStatus status,
         Instant startedAt,
         Instant completedAt,
         OperationResults results,
+        Map<String, Object> normalizedMetrics,
         String errorMessage,
         Instant createdAt) {
     /** Fully qualified table name: catalog.namespace.table */
@@ -76,10 +87,15 @@ public record OperationRecord(
                 .tableName(tableName)
                 .policyName(policyName)
                 .policyId(policyId)
+                .engineType(engineType)
+                .executionId(executionId)
+                .scheduleId(scheduleId)
+                .policyVersion(policyVersion)
                 .status(status)
                 .startedAt(startedAt)
                 .completedAt(completedAt)
                 .results(results)
+                .normalizedMetrics(normalizedMetrics)
                 .errorMessage(errorMessage)
                 .createdAt(createdAt);
     }
@@ -92,10 +108,15 @@ public record OperationRecord(
         private String tableName;
         private String policyName;
         private UUID policyId;
+        private String engineType;
+        private String executionId;
+        private String scheduleId;
+        private String policyVersion;
         private OperationStatus status = OperationStatus.PENDING;
         private Instant startedAt;
         private Instant completedAt;
         private OperationResults results;
+        private Map<String, Object> normalizedMetrics;
         private String errorMessage;
         private Instant createdAt;
 
@@ -129,6 +150,26 @@ public record OperationRecord(
             return this;
         }
 
+        public Builder engineType(String engineType) {
+            this.engineType = engineType;
+            return this;
+        }
+
+        public Builder executionId(String executionId) {
+            this.executionId = executionId;
+            return this;
+        }
+
+        public Builder scheduleId(String scheduleId) {
+            this.scheduleId = scheduleId;
+            return this;
+        }
+
+        public Builder policyVersion(String policyVersion) {
+            this.policyVersion = policyVersion;
+            return this;
+        }
+
         public Builder status(OperationStatus status) {
             this.status = status;
             return this;
@@ -146,6 +187,11 @@ public record OperationRecord(
 
         public Builder results(OperationResults results) {
             this.results = results;
+            return this;
+        }
+
+        public Builder normalizedMetrics(Map<String, Object> normalizedMetrics) {
+            this.normalizedMetrics = normalizedMetrics;
             return this;
         }
 
@@ -182,10 +228,15 @@ public record OperationRecord(
                     tableName,
                     policyName,
                     policyId,
+                    engineType,
+                    executionId,
+                    scheduleId,
+                    policyVersion,
                     status,
                     startedAt,
                     completedAt,
                     results,
+                    normalizedMetrics,
                     errorMessage,
                     createdAt);
         }

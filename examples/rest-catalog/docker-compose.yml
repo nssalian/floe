@@ -115,6 +115,9 @@ services:
       FLOE_ENGINE_TYPE: ${FLOE_ENGINE_TYPE:-SPARK}
       FLOE_LIVY_URL: http://livy:8998
       FLOE_TRINO_JDBC_URL: jdbc:trino://trino:8080
+      # Health persistence
+      FLOE_HEALTH_PERSISTENCE_ENABLED: "true"
+      FLOE_HEALTH_MAX_REPORTS_PER_TABLE: "100"
       # Auth disabled for local dev
       FLOE_AUTH_ENABLED: "false"
     depends_on:

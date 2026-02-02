@@ -85,6 +85,8 @@ class PostgresPolicyStoreIT extends PostgresTestBase {
                             original.rewriteManifests(),
                             original.rewriteManifestsSchedule(),
                             99,
+                            null, // healthThresholds
+                            null, // triggerConditions
                             original.tags(),
                             original.createdAt(),
                             Instant.now());
@@ -120,6 +122,8 @@ class PostgresPolicyStoreIT extends PostgresTestBase {
                             null,
                             null,
                             0,
+                            null, // healthThresholds
+                            null, // triggerConditions
                             Map.of(),
                             Instant.now(),
                             Instant.now());
@@ -354,6 +358,8 @@ class PostgresPolicyStoreIT extends PostgresTestBase {
                             null,
                             null,
                             0,
+                            null, // healthThresholds
+                            null, // triggerConditions
                             Map.of(),
                             Instant.now(),
                             Instant.now());
@@ -389,6 +395,8 @@ class PostgresPolicyStoreIT extends PostgresTestBase {
                             null,
                             null,
                             0,
+                            null, // healthThresholds
+                            null, // triggerConditions
                             tags,
                             Instant.now(),
                             Instant.now());
@@ -465,6 +473,8 @@ class PostgresPolicyStoreIT extends PostgresTestBase {
                 null,
                 null,
                 0,
+                null, // healthThresholds
+                null, // triggerConditions
                 Map.of(),
                 Instant.now(),
                 Instant.now());
@@ -486,6 +496,8 @@ class PostgresPolicyStoreIT extends PostgresTestBase {
                 null,
                 null,
                 priority,
+                null, // healthThresholds
+                null, // triggerConditions
                 Map.of(),
                 Instant.now(),
                 Instant.now());
@@ -512,6 +524,8 @@ class PostgresPolicyStoreIT extends PostgresTestBase {
                 rm,
                 null,
                 0,
+                null, // healthThresholds
+                null, // triggerConditions
                 Map.of(),
                 Instant.now(),
                 Instant.now());

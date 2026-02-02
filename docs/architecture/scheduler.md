@@ -13,14 +13,36 @@ Every minute, the scheduler:
 5. **Triggers maintenance** - Runs due operations on matching tables
 6. **Records execution** - Stores completion time to calculate next run
 
+The scheduler also applies:
+
+- Budget limits (tables/operations/bytes per hour)
+- Backoff after repeated failures
+- Throttling after repeated zero-change runs
+- Auto-mode prioritization based on maintenance debt score
+
 ## Configuration
 
 ```properties
 # Enable/disable the scheduler
 floe.scheduler.enabled=true
 
+# Enable/disable condition-based triggering (default: true)
+floe.scheduler.condition-based-triggering-enabled=true
+
 # Enable distributed locking for multi-replica deployments for future use
-floe.scheduler.distributed-lock.enabled=true
+floe.scheduler.distributed-lock-enabled=true
+
+# Budget limits (0 = unlimited)
+floe.scheduler.max-tables-per-poll=0
+floe.scheduler.max-operations-per-poll=0
+floe.scheduler.max-bytes-per-hour=0
+
+# Backoff and throttling
+floe.scheduler.failure-backoff-threshold=3
+floe.scheduler.failure-backoff-hours=6
+floe.scheduler.zero-change-threshold=5
+floe.scheduler.zero-change-frequency-reduction-percent=50
+floe.scheduler.zero-change-min-interval-hours=6
 ```
 
 ## Schedule Configuration
@@ -57,7 +79,7 @@ Each operation in a policy can have its own schedule:
 For deployments with multiple Floe replicas, enable distributed locking to ensure only one replica runs the scheduler:
 
 ```properties
-floe.scheduler.distributed-lock.enabled=true
+floe.scheduler.distributed-lock-enabled=true
 ```
 
 ### How It Works
@@ -74,7 +96,7 @@ floe.scheduler.distributed-lock.enabled=true
 
 ### Single-Replica Mode
 
-When `distributed-lock.enabled=false` (default):
+When `distributed-lock-enabled=false` (default):
 
 - Uses local `AtomicBoolean` for concurrency within JVM
 - Suitable for single-replica deployments
@@ -114,3 +136,13 @@ curl -X POST http://localhost:9091/api/v1/maintenance/trigger \
     "table": "events"
   }'
 ```
+
+## Trigger Status
+
+Check whether operations would trigger for a table:
+
+```bash
+curl http://localhost:9091/api/v1/tables/{namespace}/{table}/trigger-status
+```
+
+Returns per-operation status including conditions met/unmet and next eligible time.

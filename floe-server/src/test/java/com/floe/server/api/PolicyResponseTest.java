@@ -32,7 +32,10 @@ class PolicyResponseTest {
                         rewriteSummary,
                         null,
                         null,
-                        null);
+                        null,
+                        null, // healthThresholds
+                        null // triggerConditions
+                        );
 
         assertEquals("policy-123", response.id());
         assertEquals("Daily Compact", response.name());
@@ -82,6 +85,8 @@ class PolicyResponseTest {
                         null,
                         null,
                         10,
+                        null, // healthThresholds
+                        null, // triggerConditions
                         Map.of("env", "prod"),
                         createdAt,
                         updatedAt);
@@ -125,6 +130,8 @@ class PolicyResponseTest {
                         null,
                         null,
                         5,
+                        null, // healthThresholds
+                        null, // triggerConditions
                         Map.of(),
                         createdAt,
                         updatedAt);
@@ -162,6 +169,8 @@ class PolicyResponseTest {
                         null,
                         null,
                         5,
+                        null, // healthThresholds
+                        null, // triggerConditions
                         Map.of(),
                         createdAt,
                         updatedAt);
@@ -195,6 +204,8 @@ class PolicyResponseTest {
                         null,
                         null,
                         5,
+                        null, // healthThresholds
+                        null, // triggerConditions
                         Map.of(),
                         createdAt,
                         updatedAt);
@@ -237,7 +248,10 @@ class PolicyResponseTest {
                         null,
                         null,
                         null,
-                        null);
+                        null,
+                        null, // healthThresholds
+                        null // triggerConditions
+                        );
         PolicyResponse response2 =
                 new PolicyResponse(
                         "policy-123",
@@ -252,7 +266,10 @@ class PolicyResponseTest {
                         null,
                         null,
                         null,
-                        null);
+                        null,
+                        null, // healthThresholds
+                        null // triggerConditions
+                        );
 
         assertEquals(response1, response2);
         assertEquals(response1.hashCode(), response2.hashCode());
@@ -274,7 +291,10 @@ class PolicyResponseTest {
                         null,
                         null,
                         null,
-                        null);
+                        null,
+                        null, // healthThresholds
+                        null // triggerConditions
+                        );
         PolicyResponse response2 =
                 new PolicyResponse(
                         "policy-456",
@@ -289,7 +309,10 @@ class PolicyResponseTest {
                         null,
                         null,
                         null,
-                        null);
+                        null,
+                        null, // healthThresholds
+                        null // triggerConditions
+                        );
 
         assertNotEquals(response1, response2);
     }

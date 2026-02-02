@@ -156,5 +156,27 @@ class TablesE2ETest extends BaseE2ETest {
                     .statusCode(404)
                     .body("error", containsString("not found"));
         }
+
+        @Test
+        @DisplayName("should return 404 for health history of non-existent table")
+        void shouldReturn404ForHealthHistoryOfNonExistentTable() {
+            givenJson()
+                    .get(TABLES_PATH + "/nonexistent_ns/nonexistent_table/health/history")
+                    .then()
+                    .statusCode(404)
+                    .body("error", containsString("not found"));
+        }
+
+        @Test
+        @DisplayName("should return latest health reports")
+        void shouldReturnLatestHealthReports() {
+            givenJson()
+                    .get(TABLES_PATH + "/health/latest")
+                    .then()
+                    .statusCode(200)
+                    .body("catalog", notNullValue())
+                    .body("reports", notNullValue())
+                    .body("total", greaterThanOrEqualTo(0));
+        }
     }
 }

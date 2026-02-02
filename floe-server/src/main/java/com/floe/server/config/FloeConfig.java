@@ -202,6 +202,22 @@ public interface FloeConfig {
             @WithDefault("true")
             boolean vendedCredentialsEnabled();
         }
+
+        /**
+         * DataHub Iceberg Catalog configuration. DataHub provides an Iceberg REST Catalog API at
+         * the /iceberg/ endpoint with Personal Access Token (PAT) authentication.
+         *
+         * @see <a href="https://docs.datahub.com/docs/iceberg-catalog">DataHub Iceberg Catalog</a>
+         */
+        DataHub datahub();
+
+        interface DataHub {
+            /** DataHub GMS Iceberg REST endpoint (e.g., http://datahub-gms:8080/iceberg/) */
+            Optional<String> uri();
+
+            /** DataHub Personal Access Token for authentication */
+            Optional<String> token();
+        }
     }
 
     interface Store {

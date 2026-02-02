@@ -171,4 +171,86 @@ class HealthReportTest {
         assertEquals(30, report.positionDeleteFileCount());
         assertEquals(20, report.equalityDeleteFileCount());
     }
+
+    // Phase 1: New helper method tests
+
+    @Test
+    void calculateDeleteFileRatio() {
+        HealthReport report =
+                HealthReport.builder(TABLE_ID).dataFileCount(100).deleteFileCount(15).build();
+
+        assertEquals(0.15, report.deleteFileRatio(), 0.001);
+    }
+
+    @Test
+    void deleteFileRatioZeroWhenNoDataFiles() {
+        HealthReport report =
+                HealthReport.builder(TABLE_ID).dataFileCount(0).deleteFileCount(0).build();
+
+        assertEquals(0.0, report.deleteFileRatio(), 0.001);
+    }
+
+    @Test
+    void calculateOldestSnapshotAgeDays() {
+        Instant now = Instant.now();
+        Instant tenDaysAgo = now.minus(10, ChronoUnit.DAYS);
+
+        HealthReport report =
+                HealthReport.builder(TABLE_ID)
+                        .assessedAt(now)
+                        .oldestSnapshotTimestamp(tenDaysAgo)
+                        .build();
+
+        Long ageDays = report.oldestSnapshotAgeDays();
+        assertNotNull(ageDays);
+        assertEquals(10, ageDays.longValue());
+    }
+
+    @Test
+    void oldestSnapshotAgeDaysEmptyWhenNoSnapshots() {
+        HealthReport report = HealthReport.builder(TABLE_ID).build();
+
+        assertNull(report.oldestSnapshotAgeDays());
+    }
+
+    @Test
+    void calculateNewestSnapshotAgeDays() {
+        Instant now = Instant.now();
+        Instant fiveDaysAgo = now.minus(5, ChronoUnit.DAYS);
+
+        HealthReport report =
+                HealthReport.builder(TABLE_ID)
+                        .assessedAt(now)
+                        .newestSnapshotTimestamp(fiveDaysAgo)
+                        .build();
+
+        Long ageDays = report.newestSnapshotAgeDays();
+        assertNotNull(ageDays);
+        assertEquals(5, ageDays.longValue());
+    }
+
+    @Test
+    void newestSnapshotAgeDaysEmptyWhenNoSnapshots() {
+        HealthReport report = HealthReport.builder(TABLE_ID).build();
+
+        assertNull(report.newestSnapshotAgeDays());
+    }
+
+    @Test
+    void builderSupportsAllNewFields() {
+        HealthReport report =
+                HealthReport.builder(TABLE_ID)
+                        .minFileSizeBytes(1024)
+                        .maxFileSizeBytes(1024 * 1024 * 1024)
+                        .avgFileSizeBytes(256 * 1024 * 1024)
+                        .totalManifestSizeBytes(100 * 1024 * 1024)
+                        .partitionCount(500)
+                        .build();
+
+        assertEquals(1024, report.minFileSizeBytes());
+        assertEquals(1024 * 1024 * 1024, report.maxFileSizeBytes());
+        assertEquals(256 * 1024 * 1024, report.avgFileSizeBytes(), 0.001);
+        assertEquals(100 * 1024 * 1024, report.totalManifestSizeBytes());
+        assertEquals(500, report.partitionCount());
+    }
 }

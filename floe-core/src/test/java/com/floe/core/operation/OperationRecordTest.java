@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -29,10 +30,15 @@ class OperationRecordTest {
                         "events",
                         "cleanup-policy",
                         policyId,
+                        "SPARK",
+                        "exec-123",
+                        "sched-123",
+                        "v1",
                         OperationStatus.SUCCESS,
                         startedAt,
                         completedAt,
                         results,
+                        Map.of(),
                         null,
                         createdAt);
 
@@ -42,10 +48,15 @@ class OperationRecordTest {
         assertEquals("events", record.tableName());
         assertEquals("cleanup-policy", record.policyName());
         assertEquals(policyId, record.policyId());
+        assertEquals("SPARK", record.engineType());
+        assertEquals("exec-123", record.executionId());
+        assertEquals("sched-123", record.scheduleId());
+        assertEquals("v1", record.policyVersion());
         assertEquals(OperationStatus.SUCCESS, record.status());
         assertEquals(startedAt, record.startedAt());
         assertEquals(completedAt, record.completedAt());
         assertEquals(results, record.results());
+        assertEquals(Map.of(), record.normalizedMetrics());
         assertNull(record.errorMessage());
         assertEquals(createdAt, record.createdAt());
     }

@@ -48,7 +48,7 @@ public interface OperationStore {
      * @param policyName the name of the policy
      * @param policyId the ID of the policy
      */
-    void updatePolicyInfo(UUID id, String policyName, UUID policyId);
+    void updatePolicyInfo(UUID id, String policyName, UUID policyId, String policyVersion);
 
     /**
      * Find an operation by id.
@@ -161,4 +161,35 @@ public interface OperationStore {
      */
     OperationStats getStatsForTable(
             String catalog, String namespace, String tableName, Duration window);
+
+    /**
+     * Find the time of the last completed operation for a table.
+     *
+     * @param catalog the catalog name
+     * @param namespace the namespace name
+     * @param tableName the table name
+     * @return the completed time of the last operation, or empty if no operations found
+     */
+    default Optional<Instant> findLastOperationTime(
+            String catalog, String namespace, String tableName) {
+        List<OperationRecord> records = findByTable(catalog, namespace, tableName, 1);
+        if (records.isEmpty()) {
+            return Optional.empty();
+        }
+        OperationRecord latest = records.get(0);
+        return Optional.ofNullable(
+                latest.completedAt() != null ? latest.completedAt() : latest.startedAt());
+    }
+
+    /**
+     * Find the time of the last completed operation for a table with a specific operation type.
+     *
+     * @param catalog the catalog name
+     * @param namespace the namespace name
+     * @param tableName the table name
+     * @param operationType the type of operation (e.g., "compaction", "expire_snapshots")
+     * @return the completed time of the last operation of that type, or empty if none found
+     */
+    Optional<Instant> findLastOperationTime(
+            String catalog, String namespace, String tableName, String operationType);
 }

@@ -15,6 +15,8 @@ public record HealthReport(
         int snapshotCount,
         Optional<Instant> oldestSnapshotTimestamp,
         Optional<Instant> newestSnapshotTimestamp,
+        Long oldestSnapshotAgeDays,
+        Long newestSnapshotAgeDays,
 
         // Data file metrics
         int dataFileCount,
@@ -33,9 +35,11 @@ public record HealthReport(
         int deleteFileCount,
         int positionDeleteFileCount,
         int equalityDeleteFileCount,
+        double deleteFileRatio,
 
         // Partitioning
         int partitionCount,
+        double partitionSkew,
 
         // Issues Found
         List<HealthIssue> issues) {
@@ -82,6 +86,11 @@ public record HealthReport(
         return (smallFileCount * 100.0) / dataFileCount;
     }
 
+    public double largeFilePercentage() {
+        if (dataFileCount == 0) return 0.0;
+        return (largeFileCount * 100.0) / dataFileCount;
+    }
+
     public boolean needsCompaction(double smallFileThresholdPercent) {
         return smallFilePercentage() > smallFileThresholdPercent;
     }
@@ -103,6 +112,8 @@ public record HealthReport(
         private int snapshotCount = 0;
         private Optional<Instant> oldestSnapshotTimestamp = Optional.empty();
         private Optional<Instant> newestSnapshotTimestamp = Optional.empty();
+        private Long oldestSnapshotAgeDays = null;
+        private Long newestSnapshotAgeDays = null;
         private int dataFileCount = 0;
         private long totalDataSizeBytes = 0;
         private long minFileSizeBytes = 0;
@@ -115,7 +126,9 @@ public record HealthReport(
         private int deleteFileCount = 0;
         private int positionDeleteFileCount = 0;
         private int equalityDeleteFileCount = 0;
+        private Double deleteFileRatio = null;
         private int partitionCount = 0;
+        private double partitionSkew = 0;
         private List<HealthIssue> issues = List.of();
 
         private Builder(TableIdentifier tableIdentifier) {
@@ -139,6 +152,16 @@ public record HealthReport(
 
         public Builder newestSnapshotTimestamp(Instant newestSnapshotTimestamp) {
             this.newestSnapshotTimestamp = Optional.ofNullable(newestSnapshotTimestamp);
+            return this;
+        }
+
+        public Builder oldestSnapshotAgeDays(Long oldestSnapshotAgeDays) {
+            this.oldestSnapshotAgeDays = oldestSnapshotAgeDays;
+            return this;
+        }
+
+        public Builder newestSnapshotAgeDays(Long newestSnapshotAgeDays) {
+            this.newestSnapshotAgeDays = newestSnapshotAgeDays;
             return this;
         }
 
@@ -202,8 +225,18 @@ public record HealthReport(
             return this;
         }
 
+        public Builder deleteFileRatio(double deleteFileRatio) {
+            this.deleteFileRatio = deleteFileRatio;
+            return this;
+        }
+
         public Builder partitionCount(int partitionCount) {
             this.partitionCount = partitionCount;
+            return this;
+        }
+
+        public Builder partitionSkew(double partitionSkew) {
+            this.partitionSkew = partitionSkew;
             return this;
         }
 
@@ -213,12 +246,30 @@ public record HealthReport(
         }
 
         public HealthReport build() {
+            if (deleteFileRatio == null) {
+                deleteFileRatio =
+                        dataFileCount > 0 ? (double) deleteFileCount / dataFileCount : 0.0;
+            }
+            if (oldestSnapshotAgeDays == null) {
+                oldestSnapshotAgeDays =
+                        oldestSnapshotTimestamp
+                                .map(ts -> java.time.Duration.between(ts, assessedAt).toDays())
+                                .orElse(null);
+            }
+            if (newestSnapshotAgeDays == null) {
+                newestSnapshotAgeDays =
+                        newestSnapshotTimestamp
+                                .map(ts -> java.time.Duration.between(ts, assessedAt).toDays())
+                                .orElse(null);
+            }
             return new HealthReport(
                     tableIdentifier,
                     assessedAt,
                     snapshotCount,
                     oldestSnapshotTimestamp,
                     newestSnapshotTimestamp,
+                    oldestSnapshotAgeDays,
+                    newestSnapshotAgeDays,
                     dataFileCount,
                     totalDataSizeBytes,
                     minFileSizeBytes,
@@ -231,7 +282,9 @@ public record HealthReport(
                     deleteFileCount,
                     positionDeleteFileCount,
                     equalityDeleteFileCount,
+                    deleteFileRatio,
                     partitionCount,
+                    partitionSkew,
                     issues);
         }
     }

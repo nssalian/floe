@@ -18,9 +18,9 @@ External integrations are pluggable with configuration:
 
 ## For External Scheduler Integration
 
-Disable the built-in scheduler and trigger maintenance via API:
+Disable the built-in scheduler and trigger maintenance via API (requires a matching policy):
 
-![For externals schedulers](../assets/external-scheduler.svg){width="600"}
+![For external schedulers](../assets/external-scheduler.svg){width="600"}
 
 ```bash
 # Disable built-in scheduler
@@ -35,16 +35,31 @@ curl -X POST http://floe:9091/api/v1/maintenance/trigger \
 ## Data Flow
 
 ```
-    1. Policy Created (if table matches)
+    1. Policy created (patterns can cover many tables)
            |
            v
-    2. Scheduler triggers (or API call)
+    2. Scheduler triggers (auto-mode) or API call
            |
            v
-    3. Orchestrator matches tables
+    3. Table health assessed (metrics from Iceberg metadata)
            |
            v
-    4. Engine executes maintenance (Spark or Trino)
+    4. Health report persisted in TableHealthStore (if enabled)
+           |
+           v
+    5. Orchestrator validates matching policy and table
+           |
+           v
+    6. MaintenancePlanner selects operations from health issues
+           |
+           v
+    7. TriggerEvaluator gates operations (min interval / signals / critical deadline)
+           |
+           v
+    8. MaintenanceDebtScore prioritizes tables (auto-mode)
+           |
+           v
+    9. Engine executes maintenance (Spark or Trino)
            |
            +--> Spark: rewriteDataFiles(), expireSnapshots(),
            |           deleteOrphanFiles(), rewriteManifests()
@@ -53,11 +68,23 @@ curl -X POST http://floe:9091/api/v1/maintenance/trigger \
            |           expire_snapshots, remove_orphan_files
            |
            v
-    5. Operation recorded in Store
+    10. Operation recorded in Store
            |
            v
-    6. Event emitted (logging)
+    11. Event emitted (if logging is enabled)
 ```
+### Prioritization (Auto-Mode)
+
+- The scheduler computes a maintenance debt score per table using health issues and recent
+  operation outcomes (failure streaks, zero-change runs).
+- Higher debt scores are prioritized when budgets (tables/operations/bytes) are enforced.
+- Throttling and backoff can defer tables after repeated zero-change runs or failures.
+
+### Policy Requirement
+
+Manual or scheduled triggers require a matching policy. Use table patterns (e.g., `demo.test.*`)
+to avoid per-table policies.
+
 
 ## Learn More
 

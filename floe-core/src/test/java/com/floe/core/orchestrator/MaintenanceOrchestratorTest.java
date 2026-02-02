@@ -45,7 +45,13 @@ class MaintenanceOrchestratorTest {
         PolicyMatcher policyMatcher = new PolicyMatcher(policyStore);
         operationStore = new InMemoryOperationStore();
         orchestrator =
-                new MaintenanceOrchestrator(policyStore, policyMatcher, engine, operationStore);
+                new MaintenanceOrchestrator(
+                        policyStore,
+                        policyMatcher,
+                        engine,
+                        operationStore,
+                        new MaintenancePlanner());
+        when(engine.getEngineType()).thenReturn(com.floe.core.engine.EngineType.SPARK);
     }
 
     @Test
@@ -57,7 +63,7 @@ class MaintenanceOrchestratorTest {
         assertThat(result.status()).isEqualTo(OrchestratorResult.Status.NO_POLICY);
         assertThat(result.policyName()).isNull();
         assertThat(result.operationResults()).isEmpty();
-        verifyNoInteractions(engine);
+        verify(engine, never()).execute(any(), any(), any());
 
         // Verify operation was persisted
         List<OperationRecord> records = operationStore.findRecent(10);
@@ -89,7 +95,7 @@ class MaintenanceOrchestratorTest {
 
         assertThat(result.status()).isEqualTo(OrchestratorResult.Status.NO_OPERATIONS);
         assertThat(result.policyName()).isEqualTo("test-policy");
-        verifyNoInteractions(engine);
+        verify(engine, never()).execute(any(), any(), any());
 
         // Verify operation was persisted
         List<OperationRecord> records = operationStore.findRecent(10);
@@ -338,7 +344,7 @@ class MaintenanceOrchestratorTest {
 
         assertThat(result.status()).isEqualTo(OrchestratorResult.Status.NO_POLICY);
         assertThat(result.message()).contains("not found");
-        verifyNoInteractions(engine);
+        verify(engine, never()).execute(any(), any(), any());
 
         // Verify operation was persisted
         List<OperationRecord> records = operationStore.findRecent(10);
@@ -364,6 +370,8 @@ class MaintenanceOrchestratorTest {
                         null,
                         null,
                         10,
+                        null, // healthThresholds
+                        null, // triggerConditions
                         Map.of(),
                         Instant.now(),
                         Instant.now());
@@ -376,7 +384,7 @@ class MaintenanceOrchestratorTest {
 
         assertThat(result.status()).isEqualTo(OrchestratorResult.Status.NO_POLICY);
         assertThat(result.message()).contains("disabled");
-        verifyNoInteractions(engine);
+        verify(engine, never()).execute(any(), any(), any());
     }
 
     @Test
@@ -475,6 +483,8 @@ class MaintenanceOrchestratorTest {
                 null, // rewriteManifests config
                 manifestSchedule,
                 priority,
+                null, // healthThresholds
+                null, // triggerConditions
                 Map.of(),
                 Instant.now(),
                 Instant.now());

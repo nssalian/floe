@@ -11,6 +11,10 @@ public record OperationResponse(
         String qualifiedTableName,
         String policyName,
         String policyId,
+        String engineType,
+        String executionId,
+        String scheduleId,
+        String policyVersion,
         String status,
         String statusDescription,
         String startedAt,
@@ -18,6 +22,7 @@ public record OperationResponse(
         Long durationMs,
         String errorMessage,
         OperationResultsResponse results,
+        java.util.Map<String, Object> normalizedMetrics,
         String createdAt) {
     public static OperationResponse from(OperationRecord record) {
         return new OperationResponse(
@@ -28,6 +33,10 @@ public record OperationResponse(
                 record.qualifiedTableName(),
                 record.policyName(),
                 record.policyId() != null ? record.policyId().toString() : null,
+                record.engineType(),
+                record.executionId(),
+                record.scheduleId(),
+                record.policyVersion(),
                 record.status().name(),
                 record.status().getDescription(),
                 record.startedAt().toString(),
@@ -35,6 +44,7 @@ public record OperationResponse(
                 record.duration().toMillis(),
                 record.errorMessage(),
                 record.results() != null ? OperationResultsResponse.from(record.results()) : null,
+                record.normalizedMetrics(),
                 record.createdAt().toString());
     }
 }
