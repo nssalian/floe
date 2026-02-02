@@ -54,6 +54,13 @@ public class FloeMetrics {
     private final Counter authSuccessTotal;
     private final Counter authFailureTotal;
 
+    // Trigger evaluation metrics
+    private final Counter triggerEvaluationsTotal;
+    private final Counter triggerConditionsMetTotal;
+    private final Counter triggerConditionsNotMetTotal;
+    private final Counter triggerBlockedByIntervalTotal;
+    private final Counter triggerForcedByCriticalPipelineTotal;
+
     // Gauges for current state
     private final AtomicLong activePoliciesCount = new AtomicLong(0);
     private final AtomicLong runningOperationsCount = new AtomicLong(0);
@@ -116,6 +123,33 @@ public class FloeMetrics {
         this.authFailureTotal =
                 Counter.builder(PREFIX + "_auth_failure_total")
                         .description("Total number of failed authentications")
+                        .register(registry);
+
+        // Trigger Evaluation Metrics
+
+        this.triggerEvaluationsTotal =
+                Counter.builder(PREFIX + "_trigger_evaluations_total")
+                        .description("Total number of trigger condition evaluations")
+                        .register(registry);
+
+        this.triggerConditionsMetTotal =
+                Counter.builder(PREFIX + "_trigger_conditions_met_total")
+                        .description("Total evaluations where trigger conditions were met")
+                        .register(registry);
+
+        this.triggerConditionsNotMetTotal =
+                Counter.builder(PREFIX + "_trigger_conditions_not_met_total")
+                        .description("Total evaluations where trigger conditions were not met")
+                        .register(registry);
+
+        this.triggerBlockedByIntervalTotal =
+                Counter.builder(PREFIX + "_trigger_blocked_by_interval_total")
+                        .description("Total evaluations blocked by minimum interval")
+                        .register(registry);
+
+        this.triggerForcedByCriticalPipelineTotal =
+                Counter.builder(PREFIX + "_trigger_forced_by_critical_pipeline_total")
+                        .description("Total evaluations forced by critical pipeline deadline")
                         .register(registry);
 
         // Gauges for Current State
@@ -274,5 +308,71 @@ public class FloeMetrics {
 
     public MeterRegistry getRegistry() {
         return registry;
+    }
+
+    /**
+     * Record a trigger condition evaluation.
+     *
+     * @param operationType the operation type being evaluated
+     * @param conditionsMet whether conditions were met (should trigger)
+     * @param blockedByInterval whether blocked by minimum interval
+     * @param forcedByCriticalPipeline whether forced by critical pipeline deadline
+     */
+    public void recordTriggerEvaluation(
+            String operationType,
+            boolean conditionsMet,
+            boolean blockedByInterval,
+            boolean forcedByCriticalPipeline) {
+        triggerEvaluationsTotal.increment();
+
+        // Track by operation type
+        Counter.builder(PREFIX + "_trigger_evaluations_by_operation_total")
+                .description("Trigger evaluations by operation type")
+                .tag("operation", operationType.toLowerCase(Locale.ROOT))
+                .tag("result", conditionsMet ? "triggered" : "skipped")
+                .register(registry)
+                .increment();
+
+        if (conditionsMet) {
+            triggerConditionsMetTotal.increment();
+        } else {
+            triggerConditionsNotMetTotal.increment();
+        }
+
+        if (blockedByInterval) {
+            triggerBlockedByIntervalTotal.increment();
+        }
+
+        if (forcedByCriticalPipeline) {
+            triggerForcedByCriticalPipelineTotal.increment();
+        }
+    }
+
+    /**
+     * Record a trigger evaluation that resulted in triggering.
+     *
+     * @param operationType the operation type
+     * @param forcedByCriticalPipeline whether forced by critical pipeline
+     */
+    public void recordTriggerConditionsMet(String operationType, boolean forcedByCriticalPipeline) {
+        recordTriggerEvaluation(operationType, true, false, forcedByCriticalPipeline);
+    }
+
+    /**
+     * Record a trigger evaluation that was blocked by minimum interval.
+     *
+     * @param operationType the operation type
+     */
+    public void recordTriggerBlockedByInterval(String operationType) {
+        recordTriggerEvaluation(operationType, false, true, false);
+    }
+
+    /**
+     * Record a trigger evaluation where conditions were not met.
+     *
+     * @param operationType the operation type
+     */
+    public void recordTriggerConditionsNotMet(String operationType) {
+        recordTriggerEvaluation(operationType, false, false, false);
     }
 }

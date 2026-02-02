@@ -40,13 +40,28 @@ public class PostgresOperationStore implements OperationStore {
                 table_name VARCHAR(255) NOT NULL,
                 policy_name VARCHAR(255),
                 policy_id UUID,
+                engine_type VARCHAR(50),
+                execution_id VARCHAR(255),
+                schedule_id VARCHAR(255),
+                policy_version VARCHAR(255),
                 status VARCHAR(50) NOT NULL,
                 started_at TIMESTAMP WITH TIME ZONE NOT NULL,
                 completed_at TIMESTAMP WITH TIME ZONE,
                 results JSONB,
+                normalized_metrics JSONB,
                 error_message TEXT,
                 created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
             )
+            """;
+
+        String alterTableAddColumns =
+                """
+            ALTER TABLE maintenance_operations
+            ADD COLUMN IF NOT EXISTS engine_type VARCHAR(50),
+            ADD COLUMN IF NOT EXISTS execution_id VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS schedule_id VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS policy_version VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS normalized_metrics JSONB
             """;
 
         String createTableIndex =
@@ -70,6 +85,7 @@ public class PostgresOperationStore implements OperationStore {
         try (Connection conn = dataSource.getConnection();
                 Statement stmt = conn.createStatement()) {
             stmt.execute(createTable);
+            stmt.execute(alterTableAddColumns);
             stmt.execute(createTableIndex);
             stmt.execute(createStatusIndex);
             stmt.execute(createStartedAtIndex);
@@ -95,8 +111,9 @@ public class PostgresOperationStore implements OperationStore {
                 """
             INSERT INTO maintenance_operations
             (id, catalog, namespace, table_name, policy_name, policy_id,
-             status, started_at, completed_at, results, error_message, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?)
+             engine_type, execution_id, schedule_id, policy_version,
+             status, started_at, completed_at, results, normalized_metrics, error_message, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?)
             """;
 
         try (Connection conn = dataSource.getConnection();
@@ -107,14 +124,19 @@ public class PostgresOperationStore implements OperationStore {
             stmt.setString(4, toStore.tableName());
             stmt.setString(5, toStore.policyName());
             stmt.setObject(6, toStore.policyId());
-            stmt.setString(7, toStore.status().name());
-            stmt.setTimestamp(8, Timestamp.from(toStore.startedAt()));
+            stmt.setString(7, toStore.engineType());
+            stmt.setString(8, toStore.executionId());
+            stmt.setString(9, toStore.scheduleId());
+            stmt.setString(10, toStore.policyVersion());
+            stmt.setString(11, toStore.status().name());
+            stmt.setTimestamp(12, Timestamp.from(toStore.startedAt()));
             stmt.setTimestamp(
-                    9,
+                    13,
                     toStore.completedAt() != null ? Timestamp.from(toStore.completedAt()) : null);
-            stmt.setString(10, toJson(toStore.results()));
-            stmt.setString(11, toStore.errorMessage());
-            stmt.setTimestamp(12, Timestamp.from(toStore.createdAt()));
+            stmt.setString(14, toJson(toStore.results()));
+            stmt.setString(15, toJson(toStore.normalizedMetrics()));
+            stmt.setString(16, toStore.errorMessage());
+            stmt.setTimestamp(17, Timestamp.from(toStore.createdAt()));
 
             stmt.executeUpdate();
             LOG.debug("Created operation record: {}", toStore.id());
@@ -130,7 +152,7 @@ public class PostgresOperationStore implements OperationStore {
         String sql =
                 """
             UPDATE maintenance_operations
-            SET status = ?, results = ?::jsonb, completed_at = ?
+            SET status = ?, results = ?::jsonb, normalized_metrics = ?::jsonb, completed_at = ?
             WHERE id = ?
             """;
 
@@ -140,8 +162,9 @@ public class PostgresOperationStore implements OperationStore {
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, status.name());
             stmt.setString(2, toJson(results));
-            stmt.setTimestamp(3, completedAt);
-            stmt.setObject(4, id);
+            stmt.setString(3, toJson(results != null ? results.aggregatedMetrics() : null));
+            stmt.setTimestamp(4, completedAt);
+            stmt.setObject(5, id);
 
             int updated = stmt.executeUpdate();
             if (updated == 0) {
@@ -208,11 +231,11 @@ public class PostgresOperationStore implements OperationStore {
     }
 
     @Override
-    public void updatePolicyInfo(UUID id, String policyName, UUID policyId) {
+    public void updatePolicyInfo(UUID id, String policyName, UUID policyId, String policyVersion) {
         String sql =
                 """
             UPDATE maintenance_operations
-            SET policy_name = ?, policy_id = ?
+            SET policy_name = ?, policy_id = ?, policy_version = ?
             WHERE id = ?
             """;
 
@@ -220,7 +243,8 @@ public class PostgresOperationStore implements OperationStore {
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, policyName);
             stmt.setObject(2, policyId);
-            stmt.setObject(3, id);
+            stmt.setString(3, policyVersion);
+            stmt.setObject(4, id);
 
             int updated = stmt.executeUpdate();
             if (updated == 0) {
@@ -476,6 +500,46 @@ public class PostgresOperationStore implements OperationStore {
         }
     }
 
+    @Override
+    public Optional<Instant> findLastOperationTime(
+            String catalog, String namespace, String tableName, String operationType) {
+        String sql =
+                """
+            SELECT completed_at, started_at FROM maintenance_operations
+            WHERE catalog = ? AND namespace = ? AND table_name = ?
+              AND results IS NOT NULL
+              AND results->'operations' @> ?::jsonb
+            ORDER BY started_at DESC
+            LIMIT 1
+            """;
+
+        // Build the JSON filter for operation type
+        String operationTypeFilter = "[{\"operationType\":\"" + operationType + "\"}]";
+
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, catalog);
+            stmt.setString(2, namespace);
+            stmt.setString(3, tableName);
+            stmt.setString(4, operationTypeFilter);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    Timestamp completedAt = rs.getTimestamp("completed_at");
+                    Timestamp startedAt = rs.getTimestamp("started_at");
+                    return Optional.of(
+                            completedAt != null ? completedAt.toInstant() : startedAt.toInstant());
+                }
+                return Optional.empty();
+            }
+        } catch (SQLException e) {
+            throw new FloeDataAccessException(
+                    "query",
+                    "last operation time for " + catalog + "." + namespace + "." + tableName,
+                    e);
+        }
+    }
+
     private OperationStats buildStats(
             Map<OperationStatus, Long> countsByStatus, Instant windowStart, Instant windowEnd) {
         long total = countsByStatus.values().stream().mapToLong(Long::longValue).sum();
@@ -493,6 +557,12 @@ public class PostgresOperationStore implements OperationStore {
                 .noOperationsCount(countsByStatus.getOrDefault(OperationStatus.NO_OPERATIONS, 0L))
                 .windowStart(windowStart)
                 .windowEnd(windowEnd)
+                .zeroChangeRuns(0)
+                .consecutiveFailures(0)
+                .consecutiveZeroChangeRuns(0)
+                .averageBytesRewritten(0)
+                .averageFilesRewritten(0)
+                .lastRunAt(null)
                 .build();
     }
 
@@ -579,6 +649,10 @@ public class PostgresOperationStore implements OperationStore {
             String tableName = rs.getString("table_name");
             String policyName = rs.getString("policy_name");
             UUID policyId = rs.getObject("policy_id", UUID.class);
+            String engineType = rs.getString("engine_type");
+            String executionId = rs.getString("execution_id");
+            String scheduleId = rs.getString("schedule_id");
+            String policyVersion = rs.getString("policy_version");
             OperationStatus status = OperationStatus.valueOf(rs.getString("status"));
 
             Timestamp startedAtTs = rs.getTimestamp("started_at");
@@ -589,6 +663,8 @@ public class PostgresOperationStore implements OperationStore {
 
             String resultsJson = rs.getString("results");
             OperationResults results = fromJson(resultsJson, OperationResults.class);
+            String normalizedJson = rs.getString("normalized_metrics");
+            Map<String, Object> normalizedMetrics = fromJson(normalizedJson, Map.class);
 
             String errorMessage = rs.getString("error_message");
 
@@ -602,10 +678,15 @@ public class PostgresOperationStore implements OperationStore {
                     tableName,
                     policyName,
                     policyId,
+                    engineType,
+                    executionId,
+                    scheduleId,
+                    policyVersion,
                     status,
                     startedAt,
                     completedAt,
                     results,
+                    normalizedMetrics,
                     errorMessage,
                     createdAt);
         } catch (JsonProcessingException e) {

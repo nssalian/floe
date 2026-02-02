@@ -3,6 +3,7 @@ package com.floe.engine.trino;
 import com.floe.core.catalog.TableIdentifier;
 import com.floe.core.engine.*;
 import com.floe.core.maintenance.*;
+import com.floe.core.operation.NormalizedMetrics;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import java.io.PrintWriter;
@@ -138,7 +139,8 @@ public class TrinoExecutionEngine implements ExecutionEngine {
                                 LOG.debug("Executing SQL: {}", sql);
 
                                 Map<String, Object> metrics =
-                                        executeQuery(sql, context.timeoutSeconds());
+                                        normalizeMetrics(
+                                                executeQuery(sql, context.timeoutSeconds()));
 
                                 Instant endTime = Instant.now();
                                 tracker.setStatus(ExecutionStatus.SUCCEEDED);
@@ -362,6 +364,79 @@ public class TrinoExecutionEngine implements ExecutionEngine {
         }
 
         return metrics;
+    }
+
+    Map<String, Object> normalizeMetrics(Map<String, Object> raw) {
+        Map<String, Object> normalized = new HashMap<>();
+        if (raw != null) {
+            normalized.putAll(raw);
+        }
+
+        Map<String, Object> lower = new HashMap<>();
+        for (Map.Entry<String, Object> entry : normalized.entrySet()) {
+            lower.put(entry.getKey().toLowerCase(Locale.ROOT), entry.getValue());
+        }
+
+        copyIfPresent(
+                lower,
+                normalized,
+                NormalizedMetrics.FILES_REWRITTEN,
+                "files_rewritten",
+                "files_rewritten_count",
+                "rewritten_data_files_count",
+                "rewritten_files_count");
+        copyIfPresent(
+                lower,
+                normalized,
+                NormalizedMetrics.BYTES_REWRITTEN,
+                "bytes_rewritten",
+                "rewritten_data_bytes",
+                "rewritten_bytes");
+        copyIfPresent(
+                lower,
+                normalized,
+                NormalizedMetrics.MANIFESTS_REWRITTEN,
+                "manifests_rewritten",
+                "rewritten_manifests_count",
+                "rewritten_manifest_count");
+        copyIfPresent(
+                lower,
+                normalized,
+                NormalizedMetrics.SNAPSHOTS_EXPIRED,
+                "snapshots_expired",
+                "expired_snapshots");
+        copyIfPresent(
+                lower,
+                normalized,
+                NormalizedMetrics.DELETE_FILES_REMOVED,
+                "delete_files_removed",
+                "deleted_files_count",
+                "deleted_data_files_count");
+        copyIfPresent(
+                lower,
+                normalized,
+                NormalizedMetrics.ORPHAN_FILES_REMOVED,
+                "orphan_files_removed",
+                "orphan_files_count");
+
+        return normalized;
+    }
+
+    private void copyIfPresent(
+            Map<String, Object> lower,
+            Map<String, Object> target,
+            String normalizedKey,
+            String... candidates) {
+        if (target.containsKey(normalizedKey)) {
+            return;
+        }
+        for (String candidate : candidates) {
+            Object value = lower.get(candidate);
+            if (value != null) {
+                target.put(normalizedKey, value);
+                return;
+            }
+        }
     }
 
     /** Validates session property key and value to prevent SQL injection. */

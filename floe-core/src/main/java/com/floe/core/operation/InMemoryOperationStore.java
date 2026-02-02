@@ -36,6 +36,7 @@ public class InMemoryOperationStore implements OperationStore {
 
                     if (results != null) {
                         builder.results(results);
+                        builder.normalizedMetrics(results.aggregatedMetrics());
                     }
 
                     if (status.isTerminal()) {
@@ -71,11 +72,15 @@ public class InMemoryOperationStore implements OperationStore {
     }
 
     @Override
-    public void updatePolicyInfo(UUID id, String policyName, UUID policyId) {
+    public void updatePolicyInfo(UUID id, String policyName, UUID policyId, String policyVersion) {
         records.computeIfPresent(
                 id,
                 (key, existing) ->
-                        existing.toBuilder().policyName(policyName).policyId(policyId).build());
+                        existing.toBuilder()
+                                .policyName(policyName)
+                                .policyId(policyId)
+                                .policyVersion(policyVersion)
+                                .build());
     }
 
     @Override
@@ -204,6 +209,30 @@ public class InMemoryOperationStore implements OperationStore {
         return buildStats(inWindow, windowStart, windowEnd);
     }
 
+    @Override
+    public Optional<Instant> findLastOperationTime(
+            String catalog, String namespace, String tableName, String operationType) {
+        return records.values().stream()
+                .filter(
+                        r ->
+                                r.catalog().equals(catalog)
+                                        && r.namespace().equals(namespace)
+                                        && r.tableName().equals(tableName))
+                .filter(r -> r.results() != null && r.results().operations() != null)
+                .filter(
+                        r ->
+                                r.results().operations().stream()
+                                        .anyMatch(
+                                                op ->
+                                                        op.operationType() != null
+                                                                && op.operationType()
+                                                                        .name()
+                                                                        .equals(operationType)))
+                .sorted(Comparator.comparing(OperationRecord::startedAt).reversed())
+                .findFirst()
+                .map(r -> r.completedAt() != null ? r.completedAt() : r.startedAt());
+    }
+
     private OperationStats buildStats(
             List<OperationRecord> records, Instant windowStart, Instant windowEnd) {
         Map<OperationStatus, Long> countsByStatus =
@@ -225,6 +254,12 @@ public class InMemoryOperationStore implements OperationStore {
                 .noOperationsCount(countsByStatus.getOrDefault(OperationStatus.NO_OPERATIONS, 0L))
                 .windowStart(windowStart)
                 .windowEnd(windowEnd)
+                .zeroChangeRuns(0)
+                .consecutiveFailures(0)
+                .consecutiveZeroChangeRuns(0)
+                .averageBytesRewritten(0)
+                .averageFilesRewritten(0)
+                .lastRunAt(null)
                 .build();
     }
 }
