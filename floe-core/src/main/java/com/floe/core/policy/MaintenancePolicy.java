@@ -1,5 +1,6 @@
 package com.floe.core.policy;
 
+import com.floe.core.health.HealthThresholds;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -21,6 +22,9 @@ import java.util.UUID;
  * @param rewriteManifests manifest rewrite config
  * @param rewriteManifestsSchedule manifest rewrite schedule
  * @param priority policy priority (higher wins)
+ * @param healthThresholds custom health thresholds for this policy (null uses defaults)
+ * @param triggerConditions conditions that must be met before triggering (null means always
+ *     trigger)
  * @param tags metadata tags
  * @param createdAt creation timestamp
  * @param updatedAt last update timestamp
@@ -40,6 +44,8 @@ public record MaintenancePolicy(
         RewriteManifestsConfig rewriteManifests,
         ScheduleConfig rewriteManifestsSchedule,
         int priority,
+        HealthThresholds healthThresholds,
+        TriggerConditions triggerConditions,
         Map<String, String> tags,
         Instant createdAt,
         Instant updatedAt) {
@@ -114,6 +120,33 @@ public record MaintenancePolicy(
         };
     }
 
+    /**
+     * Get effective health thresholds for this policy.
+     *
+     * @return the policy's custom thresholds if set, otherwise default thresholds
+     */
+    public HealthThresholds effectiveThresholds() {
+        return healthThresholds != null ? healthThresholds : HealthThresholds.defaults();
+    }
+
+    /**
+     * Get effective trigger conditions for this policy.
+     *
+     * @return the policy's trigger conditions if set, otherwise null (always trigger)
+     */
+    public TriggerConditions effectiveTriggerConditions() {
+        return triggerConditions;
+    }
+
+    /**
+     * Check if this policy has signal-based triggering enabled.
+     *
+     * @return true if trigger conditions are set and have at least one condition
+     */
+    public boolean hasSignalBasedTriggering() {
+        return triggerConditions != null && triggerConditions.hasConditions();
+    }
+
     /** Default policy for all tables */
     public static MaintenancePolicy defaultPolicy() {
         return new MaintenancePolicy(
@@ -131,6 +164,8 @@ public record MaintenancePolicy(
                 null,
                 null,
                 0,
+                null,
+                null,
                 Map.of(),
                 Instant.EPOCH,
                 Instant.EPOCH);
@@ -158,6 +193,8 @@ public record MaintenancePolicy(
         private RewriteManifestsConfig rewriteManifests;
         private ScheduleConfig rewriteManifestsSchedule;
         private int priority;
+        private HealthThresholds healthThresholds;
+        private TriggerConditions triggerConditions;
         private Map<String, String> tags;
         private Instant createdAt;
         private Instant updatedAt;
@@ -247,6 +284,16 @@ public record MaintenancePolicy(
             return this;
         }
 
+        public Builder healthThresholds(HealthThresholds healthThresholds) {
+            this.healthThresholds = healthThresholds;
+            return this;
+        }
+
+        public Builder triggerConditions(TriggerConditions triggerConditions) {
+            this.triggerConditions = triggerConditions;
+            return this;
+        }
+
         public MaintenancePolicy build() {
             return new MaintenancePolicy(
                     id,
@@ -263,6 +310,8 @@ public record MaintenancePolicy(
                     rewriteManifests,
                     rewriteManifestsSchedule,
                     priority,
+                    healthThresholds,
+                    triggerConditions,
                     tags,
                     createdAt,
                     updatedAt);

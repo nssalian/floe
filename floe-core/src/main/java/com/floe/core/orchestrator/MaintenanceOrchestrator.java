@@ -5,7 +5,9 @@ import com.floe.core.engine.ExecutionContext;
 import com.floe.core.engine.ExecutionEngine;
 import com.floe.core.engine.ExecutionResult;
 import com.floe.core.engine.ExecutionStatus;
+import com.floe.core.health.HealthReport;
 import com.floe.core.maintenance.*;
+import com.floe.core.metrics.OperationMetricsEmitter;
 import com.floe.core.operation.OperationRecord;
 import com.floe.core.operation.OperationResults;
 import com.floe.core.operation.OperationStatus;
@@ -55,6 +57,8 @@ public class MaintenanceOrchestrator {
     private final ExecutionEngine executionEngine;
     private final OperationStore operationStore;
     private final ExecutorService executorService;
+    private final MaintenancePlanner planner;
+    private final OperationMetricsEmitter metricsEmitter;
 
     /**
      * Create a new MaintenanceOrchestrator with a default thread pool.
@@ -68,19 +72,23 @@ public class MaintenanceOrchestrator {
             PolicyStore policyStore,
             PolicyMatcher policyMatcher,
             ExecutionEngine executionEngine,
-            OperationStore operationStore) {
-        this.policyStore = policyStore;
-        this.policyMatcher = policyMatcher;
-        this.executionEngine = executionEngine;
-        this.operationStore = operationStore;
-        this.executorService =
+            OperationStore operationStore,
+            MaintenancePlanner planner,
+            OperationMetricsEmitter metricsEmitter) {
+        this(
+                policyStore,
+                policyMatcher,
+                executionEngine,
+                operationStore,
                 Executors.newFixedThreadPool(
                         4,
                         r -> {
                             Thread t = new Thread(r, "floe-maintenance-orchestrator");
                             t.setDaemon(true);
                             return t;
-                        });
+                        }),
+                planner,
+                metricsEmitter);
     }
 
     /**
@@ -98,11 +106,90 @@ public class MaintenanceOrchestrator {
             ExecutionEngine executionEngine,
             OperationStore operationStore,
             ExecutorService executorService) {
+        this(
+                policyStore,
+                policyMatcher,
+                executionEngine,
+                operationStore,
+                executorService,
+                new MaintenancePlanner(),
+                new OperationMetricsEmitter.NoOp());
+    }
+
+    /**
+     * Create a new MaintenanceOrchestrator with a custom planner.
+     *
+     * @param policyStore the store for maintenance policies
+     * @param policyMatcher the matcher for finding applicable policies
+     * @param executionEngine the engine for executing maintenance operations
+     * @param operationStore the store for operation history
+     * @param planner the maintenance planner
+     */
+    public MaintenanceOrchestrator(
+            PolicyStore policyStore,
+            PolicyMatcher policyMatcher,
+            ExecutionEngine executionEngine,
+            OperationStore operationStore,
+            MaintenancePlanner planner) {
+        this(
+                policyStore,
+                policyMatcher,
+                executionEngine,
+                operationStore,
+                Executors.newFixedThreadPool(
+                        4,
+                        r -> {
+                            Thread t = new Thread(r, "floe-maintenance-orchestrator");
+                            t.setDaemon(true);
+                            return t;
+                        }),
+                planner,
+                new OperationMetricsEmitter.NoOp());
+    }
+
+    /**
+     * Create a new MaintenanceOrchestrator with full customization.
+     *
+     * @param policyStore the store for maintenance policies
+     * @param policyMatcher the matcher for finding applicable policies
+     * @param executionEngine the engine for executing maintenance operations
+     * @param operationStore the store for operation history
+     * @param executorService the executor service for running operations
+     * @param planner the maintenance planner
+     */
+    public MaintenanceOrchestrator(
+            PolicyStore policyStore,
+            PolicyMatcher policyMatcher,
+            ExecutionEngine executionEngine,
+            OperationStore operationStore,
+            ExecutorService executorService,
+            MaintenancePlanner planner) {
+        this(
+                policyStore,
+                policyMatcher,
+                executionEngine,
+                operationStore,
+                executorService,
+                planner,
+                new OperationMetricsEmitter.NoOp());
+    }
+
+    public MaintenanceOrchestrator(
+            PolicyStore policyStore,
+            PolicyMatcher policyMatcher,
+            ExecutionEngine executionEngine,
+            OperationStore operationStore,
+            ExecutorService executorService,
+            MaintenancePlanner planner,
+            OperationMetricsEmitter metricsEmitter) {
         this.policyStore = policyStore;
         this.policyMatcher = policyMatcher;
         this.executionEngine = executionEngine;
         this.operationStore = operationStore;
         this.executorService = executorService;
+        this.planner = planner;
+        this.metricsEmitter =
+                metricsEmitter != null ? metricsEmitter : new OperationMetricsEmitter.NoOp();
     }
 
     /**
@@ -113,22 +200,47 @@ public class MaintenanceOrchestrator {
      * @return aggregated result of all operations
      */
     public OrchestratorResult runMaintenance(String catalog, TableIdentifier table) {
-        return runMaintenance(catalog, table, EnumSet.allOf(MaintenanceOperation.Type.class));
+        return runMaintenanceWithHealth(catalog, table, null);
     }
 
     /**
-     * Run specific maintenance operations for a table based on its matching policy. Only operations
-     * that are both in the filter AND enabled in the policy will run.
+     * Run maintenance operations for a table, using health data to plan which operations to run.
+     *
+     * <p>When a health report is provided, the planner determines which operations are needed based
+     * on the table's health issues. Only operations recommended by the planner AND enabled in the
+     * policy will run.
      *
      * @param catalog the catalog name
      * @param table the table to maintain
-     * @param operationFilter which operation types to consider running
+     * @param healthReport the health assessment for the table (may be null for legacy behavior)
      * @return aggregated result of all operations
      */
-    private OrchestratorResult runMaintenance(
+    public OrchestratorResult runMaintenanceWithHealth(
+            String catalog, TableIdentifier table, HealthReport healthReport) {
+        return runMaintenanceInternal(catalog, table, healthReport, null);
+    }
+
+    public OrchestratorResult runMaintenanceWithHealthAndStats(
             String catalog,
             TableIdentifier table,
-            EnumSet<MaintenanceOperation.Type> operationFilter) {
+            HealthReport healthReport,
+            com.floe.core.operation.OperationStats recentStats) {
+        return runMaintenanceInternal(catalog, table, healthReport, recentStats);
+    }
+
+    /**
+     * Internal method to run maintenance with optional health data.
+     *
+     * @param catalog the catalog name
+     * @param table the table to maintain
+     * @param healthReport the health assessment (may be null)
+     * @return aggregated result of all operations
+     */
+    private OrchestratorResult runMaintenanceInternal(
+            String catalog,
+            TableIdentifier table,
+            HealthReport healthReport,
+            com.floe.core.operation.OperationStats recentStats) {
         String orchestrationId = UUID.randomUUID().toString();
         Instant startTime = Instant.now();
         LOG.info("Starting maintenance for table: {}", table);
@@ -140,6 +252,8 @@ public class MaintenanceOrchestrator {
                                 .catalog(catalog)
                                 .namespace(table.namespace())
                                 .tableName(table.table())
+                                .engineType(executionEngine.getEngineType().name())
+                                .executionId(orchestrationId)
                                 .status(OperationStatus.RUNNING)
                                 .startedAt(startTime)
                                 .build());
@@ -163,17 +277,48 @@ public class MaintenanceOrchestrator {
             // Update record with policy info
             UUID policyUuid =
                     matchingPolicy.id() != null ? UUID.fromString(matchingPolicy.id()) : null;
-            operationStore.updatePolicyInfo(record.id(), matchingPolicy.name(), policyUuid);
+            operationStore.updatePolicyInfo(
+                    record.id(),
+                    matchingPolicy.name(),
+                    policyUuid,
+                    matchingPolicy.updatedAt() != null
+                            ? matchingPolicy.updatedAt().toString()
+                            : null);
             operationStore.updateStatus(record.id(), OperationStatus.RUNNING, null);
 
-            // 3. Build operations based on policy and filter
-            List<OperationToRun> operations = buildOperations(matchingPolicy, operationFilter);
+            // 3. Determine which operations to run
+            List<OperationToRun> operations;
+            if (healthReport != null) {
+                // Use planner to determine operations based on health
+                List<PlannedOperation> plannedOps =
+                        planner.plan(
+                                healthReport, matchingPolicy, matchingPolicy.effectiveThresholds());
+
+                Map<MaintenanceOperation.Type, PlannedOperation> plannedByType =
+                        selectMostSeverePlans(plannedOps);
+
+                // Convert planned operations to operations to run
+                Set<MaintenanceOperation.Type> plannedTypes = new HashSet<>(plannedByType.keySet());
+                operations = buildOperations(matchingPolicy, plannedTypes, plannedByType);
+
+                LOG.info(
+                        "Planner recommended {} operations for table {}: {}",
+                        plannedOps.size(),
+                        table,
+                        plannedTypes);
+            } else {
+                // Legacy behavior: run all enabled operations
+                operations =
+                        buildOperations(
+                                matchingPolicy,
+                                EnumSet.allOf(MaintenanceOperation.Type.class),
+                                Map.of());
+            }
 
             if (operations.isEmpty()) {
                 LOG.info(
-                        "No operations to run for table {} (filter={}, policy={})",
+                        "No operations to run for table {} (policy={})",
                         table,
-                        operationFilter,
                         matchingPolicy.name());
                 OrchestratorResult result =
                         OrchestratorResult.noOperations(
@@ -220,6 +365,8 @@ public class MaintenanceOrchestrator {
                                 .namespace(table.namespace())
                                 .tableName(table.table())
                                 .policyName(policyName)
+                                .engineType(executionEngine.getEngineType().name())
+                                .executionId(orchestrationId)
                                 .status(OperationStatus.RUNNING)
                                 .startedAt(startTime)
                                 .build());
@@ -241,6 +388,12 @@ public class MaintenanceOrchestrator {
             }
 
             MaintenancePolicy policy = policyOpt.get();
+            UUID policyUuid = policy.id() != null ? UUID.fromString(policy.id()) : null;
+            operationStore.updatePolicyInfo(
+                    record.id(),
+                    policy.name(),
+                    policyUuid,
+                    policy.updatedAt() != null ? policy.updatedAt().toString() : null);
 
             // 3. Verify policy is enabled
             if (!policy.enabled()) {
@@ -259,7 +412,8 @@ public class MaintenanceOrchestrator {
 
             // 4. Build operations based on policy (no filter - run all enabled)
             List<OperationToRun> operations =
-                    buildOperations(policy, EnumSet.allOf(MaintenanceOperation.Type.class));
+                    buildOperations(
+                            policy, EnumSet.allOf(MaintenanceOperation.Type.class), Map.of());
 
             if (operations.isEmpty()) {
                 LOG.info("No operations enabled in policy '{}'", policy.name());
@@ -312,6 +466,8 @@ public class MaintenanceOrchestrator {
             LOG.info("Executing {} on table {}", op.type(), table);
             OperationResult result = executeOperation(table, op);
             results.add(result);
+            metricsEmitter.recordOperationExecution(
+                    result.operationType(), result.status(), result.duration());
 
             if (result.status() == ExecutionStatus.FAILED) {
                 hadFailure = true;
@@ -341,7 +497,8 @@ public class MaintenanceOrchestrator {
     }
 
     /** Internal record to hold an operation and its type. */
-    private record OperationToRun(MaintenanceOperation.Type type, MaintenanceOperation operation) {}
+    private record OperationToRun(
+            MaintenanceOperation.Type type, MaintenanceOperation operation, String plannerReason) {}
 
     /** Shutdown the orchestrator's thread pool. */
     public void shutdown() {
@@ -356,7 +513,9 @@ public class MaintenanceOrchestrator {
      * @return list of operations to run
      */
     private List<OperationToRun> buildOperations(
-            MaintenancePolicy policy, Set<MaintenanceOperation.Type> filter) {
+            MaintenancePolicy policy,
+            Set<MaintenanceOperation.Type> filter,
+            Map<MaintenanceOperation.Type, PlannedOperation> plannedOps) {
         List<OperationToRun> operations = new ArrayList<>();
         // In the order - rewrite data files, expire snapshots, orphan cleanup, rewrite manifests
         if (filter.contains(MaintenanceOperation.Type.REWRITE_DATA_FILES)
@@ -364,14 +523,18 @@ public class MaintenanceOrchestrator {
             operations.add(
                     new OperationToRun(
                             MaintenanceOperation.Type.REWRITE_DATA_FILES,
-                            buildRewriteDataFilesOperation(policy)));
+                            buildRewriteDataFilesOperation(policy),
+                            plannerReasonFor(
+                                    plannedOps, MaintenanceOperation.Type.REWRITE_DATA_FILES)));
         }
         if (filter.contains(MaintenanceOperation.Type.EXPIRE_SNAPSHOTS)
                 && policy.hasOperationConfig(OperationType.EXPIRE_SNAPSHOTS)) {
             operations.add(
                     new OperationToRun(
                             MaintenanceOperation.Type.EXPIRE_SNAPSHOTS,
-                            buildExpireSnapshotsOperation(policy)));
+                            buildExpireSnapshotsOperation(policy),
+                            plannerReasonFor(
+                                    plannedOps, MaintenanceOperation.Type.EXPIRE_SNAPSHOTS)));
         }
 
         if (filter.contains(MaintenanceOperation.Type.ORPHAN_CLEANUP)
@@ -379,7 +542,9 @@ public class MaintenanceOrchestrator {
             operations.add(
                     new OperationToRun(
                             MaintenanceOperation.Type.ORPHAN_CLEANUP,
-                            buildOrphanCleanupOperation(policy)));
+                            buildOrphanCleanupOperation(policy),
+                            plannerReasonFor(
+                                    plannedOps, MaintenanceOperation.Type.ORPHAN_CLEANUP)));
         }
 
         if (filter.contains(MaintenanceOperation.Type.REWRITE_MANIFESTS)
@@ -387,7 +552,9 @@ public class MaintenanceOrchestrator {
             operations.add(
                     new OperationToRun(
                             MaintenanceOperation.Type.REWRITE_MANIFESTS,
-                            buildRewriteManifestsOperation(policy)));
+                            buildRewriteManifestsOperation(policy),
+                            plannerReasonFor(
+                                    plannedOps, MaintenanceOperation.Type.REWRITE_MANIFESTS)));
         }
         return operations;
     }
@@ -513,12 +680,14 @@ public class MaintenanceOrchestrator {
             ExecutionResult result = future.get();
             String errorMsg =
                     result.errorMessage().isPresent() ? result.errorMessage().get() : null;
+            Map<String, Object> metrics =
+                    mergePlannerReason(result.metrics(), opToRun.plannerReason());
             return new OperationResult(
                     currentOp.getType(),
                     result.status(),
                     opStartTime,
                     Instant.now(),
-                    result.metrics(),
+                    metrics,
                     errorMsg);
         } catch (Exception e) {
             LOG.error("Exception executing {} on {}", currentOp.getType(), table, e);
@@ -527,8 +696,42 @@ public class MaintenanceOrchestrator {
                     ExecutionStatus.FAILED,
                     opStartTime,
                     Instant.now(),
-                    Map.of(),
+                    mergePlannerReason(Map.of(), opToRun.plannerReason()),
                     e.getMessage());
         }
+    }
+
+    private static Map<MaintenanceOperation.Type, PlannedOperation> selectMostSeverePlans(
+            List<PlannedOperation> plannedOps) {
+        Map<MaintenanceOperation.Type, PlannedOperation> plannedByType =
+                new EnumMap<>(MaintenanceOperation.Type.class);
+        for (PlannedOperation plannedOp : plannedOps) {
+            PlannedOperation existing = plannedByType.get(plannedOp.operationType());
+            if (existing == null
+                    || plannedOp.severity().ordinal() > existing.severity().ordinal()) {
+                plannedByType.put(plannedOp.operationType(), plannedOp);
+            }
+        }
+        return plannedByType;
+    }
+
+    private static String plannerReasonFor(
+            Map<MaintenanceOperation.Type, PlannedOperation> plannedOps,
+            MaintenanceOperation.Type type) {
+        PlannedOperation plannedOp = plannedOps.get(type);
+        return plannedOp != null ? plannedOp.reason() : null;
+    }
+
+    private static Map<String, Object> mergePlannerReason(
+            Map<String, Object> metrics, String plannerReason) {
+        if (plannerReason == null || plannerReason.isBlank()) {
+            return metrics != null ? metrics : Map.of();
+        }
+        Map<String, Object> merged = new HashMap<>();
+        if (metrics != null) {
+            merged.putAll(metrics);
+        }
+        merged.put("plannerReason", plannerReason);
+        return merged;
     }
 }
