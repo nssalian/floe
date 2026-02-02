@@ -19,7 +19,9 @@ public record PolicyResponse(
         OperationSummary rewriteDataFiles,
         OperationSummary expireSnapshots,
         OperationSummary orphanCleanup,
-        OperationSummary rewriteManifests) {
+        OperationSummary rewriteManifests,
+        HealthThresholdsDto healthThresholds,
+        TriggerConditionsDto triggerConditions) {
     /** Create from domain MaintenancePolicy. */
     public static PolicyResponse from(MaintenancePolicy policy) {
         return new PolicyResponse(
@@ -35,7 +37,9 @@ public record PolicyResponse(
                 toSummary(OperationType.REWRITE_DATA_FILES, policy),
                 toSummary(OperationType.EXPIRE_SNAPSHOTS, policy),
                 toSummary(OperationType.ORPHAN_CLEANUP, policy),
-                toSummary(OperationType.REWRITE_MANIFESTS, policy));
+                toSummary(OperationType.REWRITE_MANIFESTS, policy),
+                HealthThresholdsDto.from(policy.healthThresholds()),
+                TriggerConditionsDto.from(policy.triggerConditions()));
     }
 
     private static OperationSummary toSummary(OperationType type, MaintenancePolicy policy) {

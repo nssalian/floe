@@ -24,7 +24,13 @@ public record CreatePolicyRequest(
         OrphanCleanupConfigDto orphanCleanup,
         @Valid ScheduleConfigDto orphanCleanupSchedule,
         RewriteManifestsConfigDto rewriteManifests,
-        @Valid ScheduleConfigDto rewriteManifestsSchedule) {
+        @Valid ScheduleConfigDto rewriteManifestsSchedule,
+
+        // Health thresholds (optional - uses defaults if not specified)
+        HealthThresholdsDto healthThresholds,
+
+        // Trigger conditions (optional - null means always trigger when schedule is due)
+        TriggerConditionsDto triggerConditions) {
     /** Convert to domain MaintenancePolicy. */
     public MaintenancePolicy toPolicy() {
         Instant now = Instant.now();
@@ -43,6 +49,8 @@ public record CreatePolicyRequest(
                 rewriteManifests != null ? rewriteManifests.toConfig() : null,
                 rewriteManifestsSchedule != null ? rewriteManifestsSchedule.toConfig() : null,
                 priority,
+                healthThresholds != null ? healthThresholds.toThresholds() : null,
+                triggerConditions != null ? triggerConditions.toConditions() : null,
                 tags != null ? tags : Map.of(),
                 now,
                 now);

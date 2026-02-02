@@ -27,7 +27,9 @@ class CreatePolicyRequestTest {
                         null,
                         null,
                         null,
-                        null);
+                        null,
+                        null, // healthThresholds
+                        null); // triggerConditions
 
         assertEquals("Daily Compact", request.name());
         assertNull(request.description());
@@ -52,7 +54,10 @@ class CreatePolicyRequestTest {
                         null,
                         null,
                         null,
-                        null);
+                        null,
+                        null, // healthThresholds
+                        null // triggerConditions
+                        );
 
         MaintenancePolicy policy = request.toPolicy();
 
@@ -83,7 +88,10 @@ class CreatePolicyRequestTest {
                         null,
                         null,
                         null,
-                        null);
+                        null,
+                        null, // healthThresholds
+                        null // triggerConditions
+                        );
 
         MaintenancePolicy policy = request.toPolicy();
 
@@ -380,7 +388,10 @@ class CreatePolicyRequestTest {
                         null,
                         null,
                         null,
-                        null);
+                        null,
+                        null, // healthThresholds
+                        null // triggerConditions
+                        );
 
         MaintenancePolicy policy = request.toPolicy();
 
@@ -407,7 +418,10 @@ class CreatePolicyRequestTest {
                         null,
                         null,
                         null,
-                        null);
+                        null,
+                        null, // healthThresholds
+                        null // triggerConditions
+                        );
         CreatePolicyRequest request2 =
                 new CreatePolicyRequest(
                         "Policy",
@@ -422,7 +436,10 @@ class CreatePolicyRequestTest {
                         null,
                         null,
                         null,
-                        null);
+                        null,
+                        null, // healthThresholds
+                        null // triggerConditions
+                        );
 
         assertEquals(request1, request2);
         assertEquals(request1.hashCode(), request2.hashCode());
