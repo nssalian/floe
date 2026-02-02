@@ -98,12 +98,15 @@
                         Policy
                     </th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Engine
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                         Started
                     </th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                         Duration
                     </th>
-                    <th scope="col" class="relative px-6 py-3">
+                    <th scope="col" class="relative px-6 py-3 sticky right-0 bg-slate-50">
                         <span class="sr-only">Actions</span>
                     </th>
                 </tr>
@@ -115,7 +118,7 @@
                        hx-swap="innerHTML">
                 {! Initial loading state !}
                 <tr>
-                    <td colspan="6" class="px-6 py-12 text-center text-slate-500">
+                    <td colspan="7" class="px-6 py-12 text-center text-slate-500">
                         <svg class="animate-spin h-6 w-6 mx-auto mb-2 text-floe-600" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>

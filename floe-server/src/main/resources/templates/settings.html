@@ -205,9 +205,7 @@
             </dl>
         </div>
     </div>
-    {/if}
-
-    {! Store & Scheduler Configuration !}
+    {/if} {! Store & Scheduler Configuration !}
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         {! Store !}
         <div
@@ -332,6 +330,98 @@
                             </span>
                             {/if}
                         </dd>
+                    </div>
+                    <div class="pt-3 border-t border-slate-100">
+                        <p class="text-xs text-slate-500 mb-2">Budgets</p>
+                        <div class="space-y-2">
+                            <div
+                                class="flex items-center justify-between text-sm"
+                            >
+                                <span class="text-slate-500"
+                                    >Max tables per poll</span
+                                >
+                                <span class="text-slate-900"
+                                    >{scheduler.maxTablesPerPoll}</span
+                                >
+                            </div>
+                            <div
+                                class="flex items-center justify-between text-sm"
+                            >
+                                <span class="text-slate-500"
+                                    >Max operations per poll</span
+                                >
+                                <span class="text-slate-900"
+                                    >{scheduler.maxOperationsPerPoll}</span
+                                >
+                            </div>
+                            <div
+                                class="flex items-center justify-between text-sm"
+                            >
+                                <span class="text-slate-500"
+                                    >Max bytes per hour</span
+                                >
+                                <span class="text-slate-900"
+                                    >{scheduler.maxBytesPerHourFormatted}</span
+                                >
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pt-3 border-t border-slate-100">
+                        <p class="text-xs text-slate-500 mb-2">
+                            Backoff &amp; Throttling
+                        </p>
+                        <div class="space-y-2">
+                            <div
+                                class="flex items-center justify-between text-sm"
+                            >
+                                <span class="text-slate-500"
+                                    >Failure backoff threshold</span
+                                >
+                                <span class="text-slate-900"
+                                    >{scheduler.failureBackoffThreshold}</span
+                                >
+                            </div>
+                            <div
+                                class="flex items-center justify-between text-sm"
+                            >
+                                <span class="text-slate-500"
+                                    >Failure backoff hours</span
+                                >
+                                <span class="text-slate-900"
+                                    >{scheduler.failureBackoffHours}h</span
+                                >
+                            </div>
+                            <div
+                                class="flex items-center justify-between text-sm"
+                            >
+                                <span class="text-slate-500"
+                                    >Zero-change threshold</span
+                                >
+                                <span class="text-slate-900"
+                                    >{scheduler.zeroChangeThreshold}</span
+                                >
+                            </div>
+                            <div
+                                class="flex items-center justify-between text-sm"
+                            >
+                                <span class="text-slate-500"
+                                    >Frequency reduction</span
+                                >
+                                <span class="text-slate-900"
+                                    >{scheduler.zeroChangeFrequencyReductionPercent}%</span
+                                >
+                            </div>
+                            <div
+                                class="flex items-center justify-between text-sm"
+                            >
+                                <span class="text-slate-500"
+                                    >Min interval after throttling</span
+                                >
+                                <span class="text-slate-900"
+                                    >{scheduler.zeroChangeMinIntervalHours}h</span
+                                >
+                            </div>
+                        </div>
                     </div>
                 </dl>
             </div>

@@ -176,9 +176,41 @@ public class SettingsUiResource extends UiResource {
     }
 
     /** View model for scheduler configuration. */
-    public record SchedulerConfigView(boolean enabled, boolean distributedLock) {
+    public record SchedulerConfigView(
+            boolean enabled,
+            boolean distributedLock,
+            int maxTablesPerPoll,
+            int maxOperationsPerPoll,
+            String maxBytesPerHourFormatted,
+            int failureBackoffThreshold,
+            int failureBackoffHours,
+            int zeroChangeThreshold,
+            int zeroChangeFrequencyReductionPercent,
+            int zeroChangeMinIntervalHours) {
         public static SchedulerConfigView from(SchedulerConfig config) {
-            return new SchedulerConfigView(config.enabled(), config.distributedLockEnabled());
+            return new SchedulerConfigView(
+                    config.enabled(),
+                    config.distributedLockEnabled(),
+                    config.maxTablesPerPoll(),
+                    config.maxOperationsPerPoll(),
+                    formatBytesOrUnlimited(config.maxBytesPerHour()),
+                    config.failureBackoffThreshold(),
+                    config.failureBackoffHours(),
+                    config.zeroChangeThreshold(),
+                    config.zeroChangeFrequencyReductionPercent(),
+                    config.zeroChangeMinIntervalHours());
         }
+    }
+
+    private static String formatBytesOrUnlimited(long bytes) {
+        if (bytes <= 0) {
+            return "Unlimited";
+        }
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return String.format("%.1f KB", bytes / 1024.0);
+        if (bytes < 1024 * 1024 * 1024) {
+            return String.format("%.1f MB", bytes / (1024.0 * 1024));
+        }
+        return String.format("%.2f GB", bytes / (1024.0 * 1024 * 1024));
     }
 }
