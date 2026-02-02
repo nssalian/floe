@@ -66,6 +66,12 @@ CREATE TABLE IF NOT EXISTS maintenance_policies (
     rewrite_manifests_config JSONB,
     rewrite_manifests_schedule JSONB,
 
+    -- Health thresholds override
+    health_thresholds JSONB,
+
+    -- Signal-based trigger conditions
+    trigger_conditions JSONB,
+
     -- Metadata
     tags JSONB,
     tenant_id VARCHAR(255),
