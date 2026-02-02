@@ -6,6 +6,8 @@ import static org.mockito.Mockito.*;
 
 import com.floe.core.catalog.CatalogClient;
 import com.floe.core.catalog.TableIdentifier;
+import com.floe.core.health.TableHealthStore;
+import com.floe.core.operation.OperationStore;
 import com.floe.core.orchestrator.MaintenanceOrchestrator;
 import com.floe.core.orchestrator.OrchestratorResult;
 import com.floe.core.policy.*;
@@ -36,6 +38,10 @@ class SchedulerServiceTest {
 
     @Mock private MaintenanceOrchestrator orchestrator;
 
+    @Mock private OperationStore operationStore;
+
+    @Mock private TableHealthStore healthStore;
+
     private ScheduleExecutionStore executionStore;
     private SchedulerService schedulerService;
 
@@ -55,6 +61,51 @@ class SchedulerServiceTest {
                     public boolean distributedLockEnabled() {
                         return false;
                     }
+
+                    @Override
+                    public int maxTablesPerPoll() {
+                        return 0;
+                    }
+
+                    @Override
+                    public int maxOperationsPerPoll() {
+                        return 0;
+                    }
+
+                    @Override
+                    public long maxBytesPerHour() {
+                        return 0;
+                    }
+
+                    @Override
+                    public int failureBackoffThreshold() {
+                        return 3;
+                    }
+
+                    @Override
+                    public int failureBackoffHours() {
+                        return 6;
+                    }
+
+                    @Override
+                    public int zeroChangeThreshold() {
+                        return 5;
+                    }
+
+                    @Override
+                    public int zeroChangeFrequencyReductionPercent() {
+                        return 50;
+                    }
+
+                    @Override
+                    public int zeroChangeMinIntervalHours() {
+                        return 6;
+                    }
+
+                    @Override
+                    public boolean conditionBasedTriggeringEnabled() {
+                        return true;
+                    }
                 };
         schedulerService =
                 new SchedulerService(
@@ -63,9 +114,17 @@ class SchedulerServiceTest {
                         orchestrator,
                         executionStore,
                         distributedLock,
+                        operationStore,
+                        healthStore,
                         schedulerConfig);
         // Use lenient to avoid UnnecessaryStubbingException for tests that don't use catalog
         lenient().when(catalogClient.getCatalogName()).thenReturn(CATALOG_NAME);
+        lenient()
+                .when(operationStore.findByTable(any(), any(), any(), anyInt()))
+                .thenReturn(List.of());
+        lenient()
+                .when(healthStore.findHistory(any(), any(), any(), anyInt()))
+                .thenReturn(List.of());
     }
 
     @Nested
@@ -79,7 +138,8 @@ class SchedulerServiceTest {
 
             schedulerService.poll();
 
-            verify(orchestrator, never()).runMaintenance(anyString(), any());
+            verify(orchestrator, never())
+                    .runMaintenanceWithHealthAndStats(anyString(), any(), any(), any());
             assertThat(schedulerService.getExecutionCount()).isEqualTo(1);
         }
 
@@ -91,14 +151,16 @@ class SchedulerServiceTest {
 
             when(policyStore.listEnabled()).thenReturn(List.of(policy));
             when(catalogClient.listAllTables()).thenReturn(List.of(table));
-            when(orchestrator.runMaintenance(eq(CATALOG_NAME), eq(table)))
+            when(orchestrator.runMaintenanceWithHealthAndStats(
+                            eq(CATALOG_NAME), eq(table), any(), any()))
                     .thenReturn(
                             OrchestratorResult.noOperations(
                                     "test-id", table, policy.name(), Instant.now()));
 
             schedulerService.poll();
 
-            verify(orchestrator).runMaintenance(CATALOG_NAME, table);
+            verify(orchestrator)
+                    .runMaintenanceWithHealthAndStats(eq(CATALOG_NAME), eq(table), any(), any());
         }
 
         @Test
@@ -122,7 +184,8 @@ class SchedulerServiceTest {
 
             schedulerService.poll();
 
-            verify(orchestrator, never()).runMaintenance(anyString(), any());
+            verify(orchestrator, never())
+                    .runMaintenanceWithHealthAndStats(anyString(), any(), any(), any());
         }
 
         @Test
@@ -134,15 +197,19 @@ class SchedulerServiceTest {
 
             when(policyStore.listEnabled()).thenReturn(List.of(policy));
             when(catalogClient.listAllTables()).thenReturn(List.of(prodTable, devTable));
-            when(orchestrator.runMaintenance(eq(CATALOG_NAME), eq(prodTable)))
+            when(orchestrator.runMaintenanceWithHealthAndStats(
+                            eq(CATALOG_NAME), eq(prodTable), any(), any()))
                     .thenReturn(
                             OrchestratorResult.noOperations(
                                     "test-id", prodTable, policy.name(), Instant.now()));
 
             schedulerService.poll();
 
-            verify(orchestrator).runMaintenance(CATALOG_NAME, prodTable);
-            verify(orchestrator, never()).runMaintenance(CATALOG_NAME, devTable);
+            verify(orchestrator)
+                    .runMaintenanceWithHealthAndStats(
+                            eq(CATALOG_NAME), eq(prodTable), any(), any());
+            verify(orchestrator, never())
+                    .runMaintenanceWithHealthAndStats(eq(CATALOG_NAME), eq(devTable), any(), any());
         }
 
         @Test
@@ -156,7 +223,8 @@ class SchedulerServiceTest {
 
             schedulerService.poll();
 
-            verify(orchestrator, never()).runMaintenance(anyString(), any());
+            verify(orchestrator, never())
+                    .runMaintenanceWithHealthAndStats(anyString(), any(), any(), any());
         }
 
         @Test
@@ -168,7 +236,8 @@ class SchedulerServiceTest {
 
             when(policyStore.listEnabled()).thenReturn(List.of(policy));
             when(catalogClient.listAllTables()).thenReturn(List.of(table));
-            when(orchestrator.runMaintenance(eq(CATALOG_NAME), eq(table)))
+            when(orchestrator.runMaintenanceWithHealthAndStats(
+                            eq(CATALOG_NAME), eq(table), any(), any()))
                     .thenReturn(
                             OrchestratorResult.noOperations(
                                     "test-id", table, policy.name(), Instant.now()));
@@ -190,9 +259,11 @@ class SchedulerServiceTest {
 
             when(policyStore.listEnabled()).thenReturn(List.of(policy));
             when(catalogClient.listAllTables()).thenReturn(List.of(table1, table2));
-            when(orchestrator.runMaintenance(CATALOG_NAME, table1))
+            when(orchestrator.runMaintenanceWithHealthAndStats(
+                            eq(CATALOG_NAME), eq(table1), any(), any()))
                     .thenThrow(new RuntimeException("Simulated failure"));
-            when(orchestrator.runMaintenance(CATALOG_NAME, table2))
+            when(orchestrator.runMaintenanceWithHealthAndStats(
+                            eq(CATALOG_NAME), eq(table2), any(), any()))
                     .thenReturn(
                             OrchestratorResult.noOperations(
                                     "test-id", table2, policy.name(), Instant.now()));
@@ -200,8 +271,10 @@ class SchedulerServiceTest {
             // Should not throw, and should continue to table2
             schedulerService.poll();
 
-            verify(orchestrator).runMaintenance(CATALOG_NAME, table1);
-            verify(orchestrator).runMaintenance(CATALOG_NAME, table2);
+            verify(orchestrator)
+                    .runMaintenanceWithHealthAndStats(eq(CATALOG_NAME), eq(table1), any(), any());
+            verify(orchestrator)
+                    .runMaintenanceWithHealthAndStats(eq(CATALOG_NAME), eq(table2), any(), any());
         }
 
         @Test
@@ -320,6 +393,51 @@ class SchedulerServiceTest {
                         public boolean distributedLockEnabled() {
                             return true;
                         }
+
+                        @Override
+                        public int maxTablesPerPoll() {
+                            return 0;
+                        }
+
+                        @Override
+                        public int maxOperationsPerPoll() {
+                            return 0;
+                        }
+
+                        @Override
+                        public long maxBytesPerHour() {
+                            return 0;
+                        }
+
+                        @Override
+                        public int failureBackoffThreshold() {
+                            return 3;
+                        }
+
+                        @Override
+                        public int failureBackoffHours() {
+                            return 6;
+                        }
+
+                        @Override
+                        public int zeroChangeThreshold() {
+                            return 5;
+                        }
+
+                        @Override
+                        public int zeroChangeFrequencyReductionPercent() {
+                            return 50;
+                        }
+
+                        @Override
+                        public int zeroChangeMinIntervalHours() {
+                            return 6;
+                        }
+
+                        @Override
+                        public boolean conditionBasedTriggeringEnabled() {
+                            return true;
+                        }
                     };
             DistributedLock mockLock = mock(DistributedLock.class);
             DistributedLock.LockHandle mockHandle = mock(DistributedLock.LockHandle.class);
@@ -335,6 +453,8 @@ class SchedulerServiceTest {
                             orchestrator,
                             executionStore,
                             mockLock,
+                            operationStore,
+                            healthStore,
                             enabledConfig);
 
             lockingScheduler.poll();
@@ -359,6 +479,51 @@ class SchedulerServiceTest {
                         public boolean distributedLockEnabled() {
                             return true;
                         }
+
+                        @Override
+                        public int maxTablesPerPoll() {
+                            return 0;
+                        }
+
+                        @Override
+                        public int maxOperationsPerPoll() {
+                            return 0;
+                        }
+
+                        @Override
+                        public long maxBytesPerHour() {
+                            return 0;
+                        }
+
+                        @Override
+                        public int failureBackoffThreshold() {
+                            return 3;
+                        }
+
+                        @Override
+                        public int failureBackoffHours() {
+                            return 6;
+                        }
+
+                        @Override
+                        public int zeroChangeThreshold() {
+                            return 5;
+                        }
+
+                        @Override
+                        public int zeroChangeFrequencyReductionPercent() {
+                            return 50;
+                        }
+
+                        @Override
+                        public int zeroChangeMinIntervalHours() {
+                            return 6;
+                        }
+
+                        @Override
+                        public boolean conditionBasedTriggeringEnabled() {
+                            return true;
+                        }
                     };
             DistributedLock mockLock = mock(DistributedLock.class);
 
@@ -373,6 +538,8 @@ class SchedulerServiceTest {
                             orchestrator,
                             executionStore,
                             mockLock,
+                            operationStore,
+                            healthStore,
                             enabledConfig);
 
             lockingScheduler.poll();

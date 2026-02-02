@@ -66,14 +66,34 @@ public record OrchestratorResult(
 
     public long skippedCount() {
         return operationResults.stream()
-                .filter(r -> r.status() == ExecutionStatus.CANCELLED)
+                .filter(
+                        r ->
+                                r.status() == ExecutionStatus.CANCELLED
+                                        || r.status() == ExecutionStatus.SKIPPED)
                 .count();
     }
 
     public Map<String, Object> aggregateMetrics() {
         return operationResults.stream()
                 .flatMap(r -> r.metrics().entrySet().stream())
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v2));
+                .collect(
+                        Collectors.toMap(
+                                Map.Entry::getKey,
+                                Map.Entry::getValue,
+                                OrchestratorResult::mergeMetricValues));
+    }
+
+    private static Object mergeMetricValues(Object left, Object right) {
+        if (left instanceof Number leftNumber && right instanceof Number rightNumber) {
+            if (leftNumber instanceof Float
+                    || leftNumber instanceof Double
+                    || rightNumber instanceof Float
+                    || rightNumber instanceof Double) {
+                return leftNumber.doubleValue() + rightNumber.doubleValue();
+            }
+            return leftNumber.longValue() + rightNumber.longValue();
+        }
+        return right;
     }
 
     public boolean isSuccess() {
