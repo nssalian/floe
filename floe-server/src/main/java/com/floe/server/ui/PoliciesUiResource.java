@@ -55,21 +55,14 @@ public class PoliciesUiResource extends UiResource {
             @QueryParam("offset") @DefaultValue("0") int offset) {
         LOG.debug("Loading policies list: limit={}, offset={}", limit, offset);
 
-        // Clamp limit to valid range
         limit = Math.max(1, Math.min(limit, MAX_LIMIT));
         offset = Math.max(0, offset);
 
-        List<MaintenancePolicy> allPolicies = policyStore.listAll();
-        int totalCount = allPolicies.size();
-
-        // Apply pagination
-        List<MaintenancePolicy> paginatedPolicies =
-                allPolicies.stream().skip(offset).limit(limit).toList();
+        List<MaintenancePolicy> paginatedPolicies = policyStore.listAll(limit, offset);
+        int totalCount = policyStore.count();
+        int enabledCount = policyStore.countEnabled();
 
         List<PolicyListView> views = paginatedPolicies.stream().map(PolicyListView::from).toList();
-
-        long enabledCount =
-                allPolicies.stream().filter(p -> Boolean.TRUE.equals(p.enabled())).count();
 
         boolean hasMore = offset + views.size() < totalCount;
 

@@ -17,6 +17,12 @@ public class PolicyMatcher {
     private static final Logger LOG = LoggerFactory.getLogger(PolicyMatcher.class);
     private final PolicyStore policyStore;
 
+    /**
+     * Create a PolicyMatcher with the given policy store.
+     *
+     * @param policyStore the policy store to query for policies
+     * @throws NullPointerException if policyStore is null
+     */
     public PolicyMatcher(PolicyStore policyStore) {
         this.policyStore = Objects.requireNonNull(policyStore, "PolicyStore cannot be null");
     }

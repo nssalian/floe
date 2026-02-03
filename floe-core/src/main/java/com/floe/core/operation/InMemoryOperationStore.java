@@ -97,6 +97,7 @@ public class InMemoryOperationStore implements OperationStore {
                                 r.catalog().equals(catalog)
                                         && r.namespace().equals(namespace)
                                         && r.tableName().equals(tableName))
+                .filter(r -> r.startedAt() != null)
                 .sorted(Comparator.comparing(OperationRecord::startedAt).reversed())
                 .limit(limit)
                 .collect(Collectors.toList());
@@ -105,6 +106,7 @@ public class InMemoryOperationStore implements OperationStore {
     @Override
     public List<OperationRecord> findRecent(int limit) {
         return records.values().stream()
+                .filter(r -> r.startedAt() != null)
                 .sorted(Comparator.comparing(OperationRecord::startedAt).reversed())
                 .limit(limit)
                 .collect(Collectors.toList());
@@ -113,6 +115,7 @@ public class InMemoryOperationStore implements OperationStore {
     @Override
     public List<OperationRecord> findRecent(int limit, int offset) {
         return records.values().stream()
+                .filter(r -> r.startedAt() != null)
                 .sorted(Comparator.comparing(OperationRecord::startedAt).reversed())
                 .skip(offset)
                 .limit(limit)
@@ -123,6 +126,7 @@ public class InMemoryOperationStore implements OperationStore {
     public List<OperationRecord> findByStatus(OperationStatus status, int limit) {
         return records.values().stream()
                 .filter(r -> r.status() == status)
+                .filter(r -> r.startedAt() != null)
                 .sorted(Comparator.comparing(OperationRecord::startedAt).reversed())
                 .limit(limit)
                 .collect(Collectors.toList());
@@ -132,6 +136,7 @@ public class InMemoryOperationStore implements OperationStore {
     public List<OperationRecord> findByStatus(OperationStatus status, int limit, int offset) {
         return records.values().stream()
                 .filter(r -> r.status() == status)
+                .filter(r -> r.startedAt() != null)
                 .sorted(Comparator.comparing(OperationRecord::startedAt).reversed())
                 .skip(offset)
                 .limit(limit)
@@ -146,6 +151,7 @@ public class InMemoryOperationStore implements OperationStore {
     @Override
     public List<OperationRecord> findInTimeRange(Instant start, Instant end, int limit) {
         return records.values().stream()
+                .filter(r -> r.startedAt() != null)
                 .filter(r -> !r.startedAt().isBefore(start) && r.startedAt().isBefore(end))
                 .sorted(Comparator.comparing(OperationRecord::startedAt).reversed())
                 .limit(limit)
@@ -184,6 +190,7 @@ public class InMemoryOperationStore implements OperationStore {
 
         List<OperationRecord> inWindow =
                 records.values().stream()
+                        .filter(r -> r.startedAt() != null)
                         .filter(r -> !r.startedAt().isBefore(windowStart))
                         .toList();
 
@@ -203,6 +210,7 @@ public class InMemoryOperationStore implements OperationStore {
                                         r.catalog().equals(catalog)
                                                 && r.namespace().equals(namespace)
                                                 && r.tableName().equals(tableName))
+                        .filter(r -> r.startedAt() != null)
                         .filter(r -> !r.startedAt().isBefore(windowStart))
                         .toList();
 
@@ -228,6 +236,7 @@ public class InMemoryOperationStore implements OperationStore {
                                                                 && op.operationType()
                                                                         .name()
                                                                         .equals(operationType)))
+                .filter(r -> r.startedAt() != null)
                 .sorted(Comparator.comparing(OperationRecord::startedAt).reversed())
                 .findFirst()
                 .map(r -> r.completedAt() != null ? r.completedAt() : r.startedAt());

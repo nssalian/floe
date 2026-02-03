@@ -34,9 +34,10 @@ public class PostgresDistributedLock implements DistributedLock {
         }
 
         long lockId = computeLockId(lockName);
+        Connection conn = null;
 
         try {
-            Connection conn = dataSource.getConnection();
+            conn = dataSource.getConnection();
             // Disable auto-commit to keep the connection open for the lock duration
             conn.setAutoCommit(false);
 
@@ -66,6 +67,13 @@ public class PostgresDistributedLock implements DistributedLock {
             return Optional.empty();
         } catch (SQLException e) {
             LOG.error("Error acquiring lock {}: {}", lockName, e.getMessage());
+            if (conn != null) {
+                try {
+                    conn.close();
+                } catch (SQLException closeEx) {
+                    LOG.warn("Error closing connection after exception: {}", closeEx.getMessage());
+                }
+            }
             return Optional.empty();
         }
     }
@@ -153,7 +161,7 @@ public class PostgresDistributedLock implements DistributedLock {
         }
 
         @Override
-        public void close() {
+        public synchronized void close() {
             if (released) {
                 return;
             }

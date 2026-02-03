@@ -88,71 +88,155 @@ public record RewriteDataFilesConfig(
         private Boolean removeDanglingDeletes;
         private Integer outputSpecId;
 
+        /**
+         * Set the rewrite strategy (BINPACK, SORT, or ZORDER).
+         *
+         * @param strategy the compaction strategy to use
+         * @return this builder
+         */
         public Builder strategy(String strategy) {
             this.strategy = strategy;
             return this;
         }
 
+        /**
+         * Set the sort order for SORT strategy.
+         *
+         * @param sortOrder list of column names to sort by
+         * @return this builder
+         */
         public Builder sortOrder(List<String> sortOrder) {
             this.sortOrder = sortOrder;
             return this;
         }
 
+        /**
+         * Set the Z-order columns for ZORDER strategy.
+         *
+         * @param zOrderColumns list of column names for Z-ordering
+         * @return this builder
+         */
         public Builder zOrderColumns(List<String> zOrderColumns) {
             this.zOrderColumns = zOrderColumns;
             return this;
         }
 
+        /**
+         * Set the target file size for rewritten files.
+         *
+         * @param v target size in bytes (e.g., 134217728 for 128 MB)
+         * @return this builder
+         */
         public Builder targetFileSizeBytes(Long v) {
             this.targetFileSizeBytes = v;
             return this;
         }
 
+        /**
+         * Set the maximum size of a file group to rewrite together.
+         *
+         * @param v max size in bytes (default: 100 GB)
+         * @return this builder
+         */
         public Builder maxFileGroupSizeBytes(Long v) {
             this.maxFileGroupSizeBytes = v;
             return this;
         }
 
+        /**
+         * Set the parallelism level for rewriting file groups.
+         *
+         * @param v number of file groups to rewrite concurrently (default: 5)
+         * @return this builder
+         */
         public Builder maxConcurrentFileGroupRewrites(Integer v) {
             this.maxConcurrentFileGroupRewrites = v;
             return this;
         }
 
+        /**
+         * Enable partial progress commits after each file group.
+         *
+         * @param v true to enable partial commits (default: false)
+         * @return this builder
+         */
         public Builder partialProgressEnabled(Boolean v) {
             this.partialProgressEnabled = v;
             return this;
         }
 
+        /**
+         * Set the maximum number of partial progress commits.
+         *
+         * @param v max commits (default: 10)
+         * @return this builder
+         */
         public Builder partialProgressMaxCommits(Integer v) {
             this.partialProgressMaxCommits = v;
             return this;
         }
 
+        /**
+         * Set the maximum failed commits before aborting.
+         *
+         * @param v max failed commits before abort
+         * @return this builder
+         */
         public Builder partialProgressMaxFailedCommits(Integer v) {
             this.partialProgressMaxFailedCommits = v;
             return this;
         }
 
+        /**
+         * Set an Iceberg expression filter for which files to rewrite.
+         *
+         * @param v expression filter string (e.g., "partition = 'abc'")
+         * @return this builder
+         */
         public Builder filter(String v) {
             this.filter = v;
             return this;
         }
 
+        /**
+         * Set the job execution order (NONE, BYTES_ASC, BYTES_DESC, FILES_ASC, FILES_DESC).
+         *
+         * @param v rewrite job order strategy
+         * @return this builder
+         */
         public Builder rewriteJobOrder(String v) {
             this.rewriteJobOrder = v;
             return this;
         }
 
+        /**
+         * Set whether to use starting sequence numbers for commit validation.
+         *
+         * @param v true to use starting sequence numbers (default: true)
+         * @return this builder
+         */
         public Builder useStartingSequenceNumber(Boolean v) {
             this.useStartingSequenceNumber = v;
             return this;
         }
 
+        /**
+         * Set whether to remove dangling delete files during rewrite.
+         *
+         * @param v true to remove dangling deletes (default: false)
+         * @return this builder
+         */
         public Builder removeDanglingDeletes(Boolean v) {
             this.removeDanglingDeletes = v;
             return this;
         }
 
+        /**
+         * Set the output partition spec ID for rewritten files.
+         *
+         * @param v partition spec ID, or null to use current spec
+         * @return this builder
+         */
         public Builder outputSpecId(Integer v) {
             this.outputSpecId = v;
             return this;

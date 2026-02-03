@@ -23,10 +23,19 @@ public record TableIdentifier(String catalog, String namespace, String table) {
 
     /** Parse a fully qualified table name like "catalog.database.table" */
     public static TableIdentifier parse(String qualifiedName) {
+        if (qualifiedName == null || qualifiedName.isBlank()) {
+            throw new IllegalArgumentException("qualifiedName cannot be null or blank");
+        }
         String[] parts = qualifiedName.split("\\.");
         if (parts.length != 3) {
             throw new IllegalArgumentException(
                     "Expected format: catalog.namespace.table, got: " + qualifiedName);
+        }
+        for (int i = 0; i < parts.length; i++) {
+            if (parts[i].isBlank()) {
+                throw new IllegalArgumentException(
+                        "Empty segment at position " + i + " in: " + qualifiedName);
+            }
         }
         return new TableIdentifier(parts[0], parts[1], parts[2]);
     }

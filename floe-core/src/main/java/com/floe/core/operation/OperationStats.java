@@ -119,6 +119,11 @@ public record OperationStats(
         long bytesSum = 0;
         long filesSum = 0;
 
+        long consecutiveFailures = 0;
+        long consecutiveZeroChanges = 0;
+        boolean stillCountingFailures = true;
+        boolean stillCountingZeroChanges = true;
+
         for (OperationRecord record : sorted) {
             switch (record.status()) {
                 case SUCCESS -> success++;
@@ -143,52 +148,37 @@ public record OperationStats(
             long deleteFiles = getLong(metrics, NormalizedMetrics.DELETE_FILES_REMOVED);
             long orphanFiles = getLong(metrics, NormalizedMetrics.ORPHAN_FILES_REMOVED);
 
-            if (bytes == 0
-                    && files == 0
-                    && manifests == 0
-                    && snapshots == 0
-                    && deleteFiles == 0
-                    && orphanFiles == 0) {
+            boolean isZeroChange =
+                    bytes == 0
+                            && files == 0
+                            && manifests == 0
+                            && snapshots == 0
+                            && deleteFiles == 0
+                            && orphanFiles == 0;
+
+            if (isZeroChange) {
                 zeroChangeRuns++;
+            }
+
+            if (stillCountingFailures) {
+                if (record.status() == OperationStatus.FAILED
+                        || record.status() == OperationStatus.PARTIAL_FAILURE) {
+                    consecutiveFailures++;
+                } else {
+                    stillCountingFailures = false;
+                }
+            }
+
+            if (stillCountingZeroChanges) {
+                if (isZeroChange) {
+                    consecutiveZeroChanges++;
+                } else {
+                    stillCountingZeroChanges = false;
+                }
             }
 
             bytesSum += bytes;
             filesSum += files;
-        }
-
-        long consecutiveFailures = 0;
-        long consecutiveZeroChanges = 0;
-        for (OperationRecord record : sorted) {
-            if (record.status() == OperationStatus.FAILED
-                    || record.status() == OperationStatus.PARTIAL_FAILURE) {
-                consecutiveFailures++;
-            } else {
-                break;
-            }
-        }
-        for (OperationRecord record : sorted) {
-            java.util.Map<String, Object> metrics =
-                    record.normalizedMetrics() != null
-                            ? record.normalizedMetrics()
-                            : record.results() != null
-                                    ? record.results().aggregatedMetrics()
-                                    : java.util.Map.of();
-            long bytes = getLong(metrics, NormalizedMetrics.BYTES_REWRITTEN);
-            long files = getLong(metrics, NormalizedMetrics.FILES_REWRITTEN);
-            long manifests = getLong(metrics, NormalizedMetrics.MANIFESTS_REWRITTEN);
-            long snapshots = getLong(metrics, NormalizedMetrics.SNAPSHOTS_EXPIRED);
-            long deleteFiles = getLong(metrics, NormalizedMetrics.DELETE_FILES_REMOVED);
-            long orphanFiles = getLong(metrics, NormalizedMetrics.ORPHAN_FILES_REMOVED);
-            if (bytes == 0
-                    && files == 0
-                    && manifests == 0
-                    && snapshots == 0
-                    && deleteFiles == 0
-                    && orphanFiles == 0) {
-                consecutiveZeroChanges++;
-            } else {
-                break;
-            }
         }
 
         double avgBytes = sorted.isEmpty() ? 0 : (bytesSum / (double) sorted.size());
@@ -325,6 +315,13 @@ public record OperationStats(
         }
     }
 
+    /**
+     * Extract a long value from a metrics map.
+     *
+     * @param metrics the metrics map
+     * @param key the key to look up
+     * @return the long value, or 0 if key not found or value is not a number
+     */
     private static long getLong(java.util.Map<String, Object> metrics, String key) {
         Object value = metrics.get(key);
         if (value instanceof Number number) {

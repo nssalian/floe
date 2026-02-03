@@ -1,8 +1,9 @@
 package com.floe.core.health;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 /**
@@ -13,7 +14,7 @@ import java.util.stream.Collectors;
  */
 public class InMemoryTableHealthStore implements TableHealthStore {
 
-    private final CopyOnWriteArrayList<HealthReport> reports = new CopyOnWriteArrayList<>();
+    private final List<HealthReport> reports = Collections.synchronizedList(new ArrayList<>());
 
     @Override
     public void save(HealthReport report) {

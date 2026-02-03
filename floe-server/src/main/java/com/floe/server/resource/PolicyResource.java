@@ -128,18 +128,15 @@ public class PolicyResource {
         }
 
         try {
-            List<MaintenancePolicy> allPolicies;
+            List<MaintenancePolicy> paginatedPolicies;
+            int total;
             if (Boolean.TRUE.equals(enabledOnly)) {
-                allPolicies = policyStore.listEnabled();
+                paginatedPolicies = policyStore.listEnabled(limit, offset);
+                total = policyStore.countEnabled();
             } else {
-                allPolicies = policyStore.listAll();
+                paginatedPolicies = policyStore.listAll(limit, offset);
+                total = policyStore.count();
             }
-
-            int total = allPolicies.size();
-
-            // Apply pagination in-memory
-            List<MaintenancePolicy> paginatedPolicies =
-                    allPolicies.stream().skip(offset).limit(limit).toList();
 
             List<PolicyResponse> responses =
                     paginatedPolicies.stream().map(PolicyResponse::from).toList();

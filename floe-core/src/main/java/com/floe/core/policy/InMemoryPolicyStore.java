@@ -1,6 +1,5 @@
 package com.floe.core.policy;
 
-import com.floe.core.catalog.TableIdentifier;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -86,22 +85,6 @@ public class InMemoryPolicyStore implements PolicyStore {
     public int countEnabled() {
         return (int)
                 policies.values().stream().filter(p -> Boolean.TRUE.equals(p.enabled())).count();
-    }
-
-    @Override
-    public List<MaintenancePolicy> findMatchingPolicies(String catalog, TableIdentifier tableId) {
-        return listEnabled().stream()
-                .filter(policy -> policy.tablePattern().matches(catalog, tableId))
-                .sorted((p1, p2) -> Integer.compare(p2.effectivePriority(), p1.effectivePriority()))
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public Optional<MaintenancePolicy> findEffectivePolicy(
-            String catalog, TableIdentifier tableId) {
-        return listEnabled().stream()
-                .filter(policy -> policy.tablePattern().matches(catalog, tableId))
-                .max(Comparator.comparingInt(p -> p.tablePattern().specificity()));
     }
 
     @Override

@@ -52,6 +52,9 @@ public record OperationRecord(
 
     /** Duration of the operation, or time since start if still running. */
     public Duration duration() {
+        if (startedAt == null) {
+            return Duration.ZERO;
+        }
         if (completedAt != null) {
             return Duration.between(startedAt, completedAt);
         }

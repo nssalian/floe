@@ -81,6 +81,9 @@ public record RbacAuthorizationProvider(Function<String, Optional<Role>> roleRes
 
     /** Map an action string to a Permission. */
     private Permission mapActionToPermission(String action) {
+        if (action == null) {
+            return null;
+        }
         return switch (action.toLowerCase(Locale.ROOT)) {
             case "read:policies", "read_policies" -> Permission.READ_POLICIES;
             case "write:policies", "write_policies" -> Permission.WRITE_POLICIES;
