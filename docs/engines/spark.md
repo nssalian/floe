@@ -11,6 +11,13 @@ which provides a REST interface to Spark clusters.
 
 ## Configuration
 
+**Property notation:**
+```properties
+floe.engine-type=SPARK
+floe.livy.url=http://livy:8998
+```
+
+**Environment variable notation:**
 ```bash
 FLOE_ENGINE_TYPE=SPARK
 FLOE_LIVY_URL=http://livy:8998
@@ -18,13 +25,13 @@ FLOE_LIVY_URL=http://livy:8998
 
 ## Options
 
-| Property | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `floe.livy.url` | Yes | - | Livy REST API URL |
-| `floe.livy.job.jar` | No | `local:///opt/floe/floe-maintenance-job.jar` | Path to maintenance job JAR |
-| `floe.livy.job.main-class` | No | `com.floe.spark.job.MaintenanceJob` | Main class |
-| `floe.livy.driver-memory` | No | `2g` | Spark driver memory |
-| `floe.livy.executor-memory` | No | `2g` | Spark executor memory |
+| Property | Environment Variable | Required | Default | Description |
+|----------|---------------------|----------|---------|-------------|
+| `floe.livy.url` | `FLOE_LIVY_URL` | Yes | - | Livy REST API URL |
+| `floe.livy.job.jar` | `FLOE_LIVY_JOB_JAR` | No | `local:///opt/floe/floe-maintenance-job.jar` | Path to maintenance job JAR |
+| `floe.livy.job.main-class` | `FLOE_LIVY_JOB_MAIN_CLASS` | No | `com.floe.spark.job.MaintenanceJob` | Main class |
+| `floe.livy.driver-memory` | `FLOE_LIVY_DRIVER_MEMORY` | No | `2g` | Spark driver memory |
+| `floe.livy.executor-memory` | `FLOE_LIVY_EXECUTOR_MEMORY` | No | `2g` | Spark executor memory |
 
 ## Job Lifecycle
 

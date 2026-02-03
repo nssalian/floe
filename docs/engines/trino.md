@@ -9,9 +9,9 @@ All Iceberg maintenance operations are supported across all catalog types
 
 ## Configuration
 
+**Property notation:**
 ```properties
 floe.engine-type=TRINO
-
 floe.trino.jdbc-url=jdbc:trino://trino:8080
 floe.trino.user=floe
 floe.trino.password=
@@ -20,16 +20,27 @@ floe.trino.schema=test
 floe.trino.query-timeout-seconds=3600
 ```
 
+**Environment variable notation:**
+```bash
+FLOE_ENGINE_TYPE=TRINO
+FLOE_TRINO_JDBC_URL=jdbc:trino://trino:8080
+FLOE_TRINO_USER=floe
+FLOE_TRINO_PASSWORD=
+FLOE_TRINO_CATALOG=demo
+FLOE_TRINO_SCHEMA=test
+FLOE_TRINO_QUERY_TIMEOUT_SECONDS=3600
+```
+
 ## Options
 
-| Property | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `floe.trino.jdbc-url` | Yes | - | JDBC connection URL |
-| `floe.trino.user` | Yes | - | Trino user |
-| `floe.trino.password` | No | - | Trino password |
-| `floe.trino.catalog` | Yes | `demo` | Iceberg catalog name in Trino |
-| `floe.trino.schema` | No | `test` | Default schema |
-| `floe.trino.query-timeout-seconds` | No | `3600` | Query timeout |
+| Property | Environment Variable | Required | Default | Description |
+|----------|---------------------|----------|---------|-------------|
+| `floe.trino.jdbc-url` | `FLOE_TRINO_JDBC_URL` | Yes | - | JDBC connection URL |
+| `floe.trino.user` | `FLOE_TRINO_USER` | Yes | - | Trino user |
+| `floe.trino.password` | `FLOE_TRINO_PASSWORD` | No | - | Trino password |
+| `floe.trino.catalog` | `FLOE_TRINO_CATALOG` | Yes | `demo` | Iceberg catalog name in Trino |
+| `floe.trino.schema` | `FLOE_TRINO_SCHEMA` | No | `test` | Default schema |
+| `floe.trino.query-timeout-seconds` | `FLOE_TRINO_QUERY_TIMEOUT_SECONDS` | No | `3600` | Query timeout |
 
 
 ## Trino Catalog Setup

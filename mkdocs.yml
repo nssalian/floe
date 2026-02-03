@@ -59,6 +59,7 @@ nav:
       - Project Nessie: catalogs/nessie.md
       - Lakekeeper: catalogs/lakekeeper.md
       - Gravitino: catalogs/gravitino.md
+      - Datahub: catalogs/datahub.md
   - Engines:
       - Overview: engines/index.md
       - Apache Spark: engines/spark.md
