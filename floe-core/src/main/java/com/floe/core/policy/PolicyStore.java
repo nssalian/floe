@@ -1,8 +1,10 @@
 package com.floe.core.policy;
 
 import com.floe.core.catalog.TableIdentifier;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Storage abstraction for maintenance policies. Implementations can persist policies to various
@@ -72,7 +74,12 @@ public interface PolicyStore {
      * @param tableId the table identifier
      * @return list of matching policies, sorted by priority
      */
-    List<MaintenancePolicy> findMatchingPolicies(String catalog, TableIdentifier tableId);
+    default List<MaintenancePolicy> findMatchingPolicies(String catalog, TableIdentifier tableId) {
+        return listEnabled().stream()
+                .filter(policy -> policy.tablePattern().matches(catalog, tableId))
+                .sorted((p1, p2) -> Integer.compare(p2.effectivePriority(), p1.effectivePriority()))
+                .collect(Collectors.toList());
+    }
 
     /**
      * Find the single most applicable policy for a table.
@@ -81,7 +88,12 @@ public interface PolicyStore {
      * @param tableId the table identifier
      * @return the effective policy if found, empty otherwise
      */
-    Optional<MaintenancePolicy> findEffectivePolicy(String catalog, TableIdentifier tableId);
+    default Optional<MaintenancePolicy> findEffectivePolicy(
+            String catalog, TableIdentifier tableId) {
+        return listEnabled().stream()
+                .filter(policy -> policy.tablePattern().matches(catalog, tableId))
+                .max(Comparator.comparingInt(p -> p.tablePattern().specificity()));
+    }
 
     /**
      * Find a policy by its name.

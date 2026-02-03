@@ -1,6 +1,7 @@
 package com.floe.core.policy;
 
 import com.floe.core.catalog.TableIdentifier;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -18,6 +19,9 @@ public record TablePattern(String catalogPattern, String namespacePattern, Strin
     private static final String WILDCARD = "*";
     private static final int MAX_PATTERN_LENGTH = 256;
     private static final int MAX_REGEX_LENGTH = 128;
+
+    private static final ConcurrentHashMap<String, Pattern> PATTERN_CACHE =
+            new ConcurrentHashMap<>();
 
     /**
      * Parse a dot-separated pattern string. Formats: - "table" -> matches table in any
@@ -104,13 +108,15 @@ public record TablePattern(String catalogPattern, String namespacePattern, Strin
         // Check for regex pattern (enclosed in /.../)
         if (pattern.startsWith("/") && pattern.endsWith("/")) {
             String regex = pattern.substring(1, pattern.length() - 1);
-            return Pattern.matches(regex, value);
+            Pattern compiledPattern = PATTERN_CACHE.computeIfAbsent(regex, Pattern::compile);
+            return compiledPattern.matcher(value).matches();
         }
 
         // Convert glob pattern to regex
         if (pattern.contains("*") || pattern.contains("?")) {
             String regex = globToRegex(pattern);
-            return Pattern.matches(regex, value);
+            Pattern compiledPattern = PATTERN_CACHE.computeIfAbsent(regex, Pattern::compile);
+            return compiledPattern.matcher(value).matches();
         }
 
         // Exact match

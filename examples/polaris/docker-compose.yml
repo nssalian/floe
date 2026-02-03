@@ -212,6 +212,10 @@ services:
     ports:
       - "8888:8888"
       - "4040:4040"
+    volumes:
+      - spark_ivy_cache:/root/.ivy2
+      # Override default spark config to use REST catalog with Polaris
+      - ../../docker/spark/spark-defaults-polaris.conf:/opt/spark/conf/spark-defaults.conf:ro
     environment:
       # Catalog config for setup-demo-tables.py
       CATALOG_TYPE: polaris
@@ -222,14 +226,12 @@ services:
       AWS_ACCESS_KEY_ID: admin
       AWS_SECRET_ACCESS_KEY: password
       AWS_REGION: us-east-1
-    volumes:
-      # Override default spark config to use REST catalog with Polaris
-      - ../../docker/spark/spark-defaults-polaris.conf:/opt/spark/conf/spark-defaults.conf:ro
     depends_on:
       - polaris
 
 volumes:
   postgres_data:
+  spark_ivy_cache:
 
 networks:
   default:

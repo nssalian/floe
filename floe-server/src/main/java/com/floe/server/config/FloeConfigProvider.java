@@ -19,6 +19,10 @@ public class FloeConfigProvider {
             synchronized (this) {
                 if (floeConfig == null) {
                     SmallRyeConfig smallRyeConfig = config.unwrap(SmallRyeConfig.class);
+                    if (smallRyeConfig == null) {
+                        throw new IllegalStateException(
+                                "Failed to unwrap SmallRyeConfig from Config");
+                    }
                     floeConfig = smallRyeConfig.getConfigMapping(FloeConfig.class);
                 }
             }

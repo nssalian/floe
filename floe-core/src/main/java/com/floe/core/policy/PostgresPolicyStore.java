@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.floe.core.catalog.TableIdentifier;
 import com.floe.core.exception.FloeConfigurationException;
 import com.floe.core.exception.FloeDataAccessException;
 import com.floe.core.health.HealthThresholds;
@@ -65,6 +64,7 @@ public class PostgresPolicyStore implements PolicyStore {
             CREATE INDEX IF NOT EXISTS idx_policies_enabled ON maintenance_policies(enabled);
             CREATE INDEX IF NOT EXISTS idx_policies_name ON maintenance_policies(name);
             CREATE INDEX IF NOT EXISTS idx_policies_pattern ON maintenance_policies(table_pattern);
+            CREATE INDEX IF NOT EXISTS idx_policies_enabled_priority ON maintenance_policies(enabled, priority DESC, created_at DESC);
             """;
         try (Connection conn = dataSource.getConnection();
                 Statement statement = conn.createStatement()) {
@@ -220,22 +220,13 @@ public class PostgresPolicyStore implements PolicyStore {
         return 0;
     }
 
-    @Override
-    public List<MaintenancePolicy> findMatchingPolicies(String catalog, TableIdentifier tableId) {
-        return listEnabled().stream()
-                .filter(policy -> policy.tablePattern().matches(catalog, tableId))
-                .sorted((p1, p2) -> Integer.compare(p2.effectivePriority(), p1.effectivePriority()))
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public Optional<MaintenancePolicy> findEffectivePolicy(
-            String catalog, TableIdentifier tableId) {
-        return listEnabled().stream()
-                .filter(policy -> policy.tablePattern().matches(catalog, tableId))
-                .max(Comparator.comparingInt(p -> p.tablePattern().specificity()));
-    }
-
+    /**
+     * Find policies with overlapping patterns. Note: This loads all policies then filters in-memory
+     * rather than using SQL pattern matching. This is intentional because: (1) TablePattern
+     * supports complex glob and regex patterns that are difficult to express in SQL, (2) Policy
+     * stores typically contain < 100 policies, making full scans acceptable, (3) Centralizing
+     * pattern matching logic in TablePattern.matches() prevents bugs from duplicated logic.
+     */
     @Override
     public List<MaintenancePolicy> findByPattern(TablePattern pattern) {
         return listAll().stream()

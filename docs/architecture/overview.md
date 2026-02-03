@@ -80,6 +80,9 @@ curl -X POST http://floe:9091/api/v1/maintenance/trigger \
 - Higher debt scores are prioritized when budgets (tables/operations/bytes) are enforced.
 - Throttling and backoff can defer tables after repeated zero-change runs or failures.
 
+> **Note**: The debt score weights are currently fixed. Configurable weight parameters will be
+> added in a future release. See [Scheduler](scheduler.md#maintenance-debt-score) for current scoring details.
+
 ### Policy Requirement
 
 Manual or scheduled triggers require a matching policy. Use table patterns (e.g., `demo.test.*`)

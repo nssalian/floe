@@ -11,8 +11,16 @@ Floe delegates maintenance operations to execution engines that interact with Ic
 
 ## Configuration
 
+Select the execution engine using property or environment variable notation:
+
+**Property notation:**
 ```properties
 floe.engine-type=TRINO
+```
+
+**Environment variable notation:**
+```bash
+FLOE_ENGINE_TYPE=TRINO
 ```
 
 ## Operation Support

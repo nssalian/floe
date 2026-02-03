@@ -72,7 +72,7 @@ public class AuditLogRetentionJob {
             int archivalThresholdDays = config.security().audit().archivalThresholdDays();
             String archivalBucket = config.security().audit().archivalBucket().orElse(null);
 
-            if (archivalBucket == null || archivalBucket.isEmpty()) {
+            if (archivalBucket == null || archivalBucket.isBlank()) {
                 LOG.warn(
                         "Audit log archival is enabled but no archival bucket configured, skipping archival");
                 return;

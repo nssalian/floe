@@ -15,7 +15,7 @@ public class InMemoryCatalogConfigStore implements CatalogConfigStore {
     private volatile CatalogConfig activeConfig = null;
 
     @Override
-    public CatalogConfig upsertAndActivate(CatalogConfig config) {
+    public synchronized CatalogConfig upsertAndActivate(CatalogConfig config) {
         String key = config.name() + ":" + config.type();
 
         // Deactivate current
@@ -60,7 +60,7 @@ public class InMemoryCatalogConfigStore implements CatalogConfigStore {
     }
 
     /** Clears all stored configs. Useful for testing. */
-    public void clear() {
+    public synchronized void clear() {
         configs.clear();
         activeConfig = null;
     }

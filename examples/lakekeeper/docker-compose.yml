@@ -244,6 +244,8 @@ services:
     ports:
       - "8888:8888"
       - "4040:4040"
+    volumes:
+      - spark_ivy_cache:/root/.ivy2
     environment:
       # Catalog config for setup-demo-tables.py
       CATALOG_TYPE: lakekeeper
@@ -260,6 +262,7 @@ services:
 
 volumes:
   postgres_data:
+  spark_ivy_cache:
 
 networks:
   default:

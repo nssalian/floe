@@ -87,6 +87,11 @@ curl -X POST http://localhost:9091/api/v1/maintenance/trigger \
 }'
 ```
 
+## Documentation
+
+- **[Policy Guide](docs/policies.md)** - Complete guide to configuring maintenance policies
+- **[Full Documentation](docs/index.md)** - Architecture, configuration, and API reference
+
 ## Project Status
 
 Floe works as documented. Forks are welcome.

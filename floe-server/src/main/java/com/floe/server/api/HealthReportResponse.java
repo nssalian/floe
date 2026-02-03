@@ -51,11 +51,14 @@ public record HealthReportResponse(
      */
     public static HealthReportResponse from(HealthReport report, HealthThresholds thresholds) {
         String status = "healthy";
-        if (report.issues().stream().anyMatch(i -> i.severity() == HealthIssue.Severity.CRITICAL)) {
-            status = "critical";
-        } else if (report.issues().stream()
-                .anyMatch(i -> i.severity() == HealthIssue.Severity.WARNING)) {
-            status = "warning";
+        for (HealthIssue issue : report.issues()) {
+            if (issue.severity() == HealthIssue.Severity.CRITICAL) {
+                status = "critical";
+                break;
+            } else if (issue.severity() == HealthIssue.Severity.WARNING
+                    && status.equals("healthy")) {
+                status = "warning";
+            }
         }
 
         return new HealthReportResponse(

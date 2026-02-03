@@ -20,6 +20,27 @@ The scheduler also applies:
 - Throttling after repeated zero-change runs
 - Auto-mode prioritization based on maintenance debt score
 
+## Maintenance Debt Score
+
+The maintenance debt score (0-1000) prioritizes tables in auto-mode when budgets are enforced. It combines:
+
+- **Health issues**: CRITICAL=100, WARNING=50, INFO=10 points each
+- **Stale metadata**: 0.5 points per day since last snapshot
+- **Failure rate**: Percentage of failed operations (0-100)
+- **Consecutive failures**: 20 points per failure in a row
+
+> **⚠️ Note**: The current weights are initial estimates for general use cases. Configurable weight
+> parameters will be added in a future release to allow tuning based on your environment's priorities.
+
+### Example Scores
+
+| Scenario | Score | Calculation |
+|----------|-------|-------------|
+| Healthy table, recent data | ~0 | No issues |
+| 1 WARNING, 10 days old | 55 | 50 + (10 × 0.5) |
+| 1 CRITICAL, 3 consecutive failures | 160 | 100 + (3 × 20) |
+| Multiple issues, 50% failure rate | 250+ | Cumulative |
+
 ## Configuration
 
 ```properties

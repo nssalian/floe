@@ -71,7 +71,8 @@ class PolicyResourceTest {
 
     @Test
     void shouldListAllPolicies() {
-        when(policyStore.listAll()).thenReturn(List.of(testPolicy));
+        when(policyStore.listAll(20, 0)).thenReturn(List.of(testPolicy));
+        when(policyStore.count()).thenReturn(1);
 
         Response response = resource.list(null, 20, 0);
 
@@ -87,18 +88,20 @@ class PolicyResourceTest {
 
     @Test
     void shouldListEnabledPoliciesOnly() {
-        when(policyStore.listEnabled()).thenReturn(List.of(testPolicy));
+        when(policyStore.listEnabled(20, 0)).thenReturn(List.of(testPolicy));
+        when(policyStore.countEnabled()).thenReturn(1);
 
         Response response = resource.list(true, 20, 0);
 
         assertEquals(200, response.getStatus());
-        verify(policyStore).listEnabled();
-        verify(policyStore, never()).listAll();
+        verify(policyStore).listEnabled(20, 0);
+        verify(policyStore, never()).listAll(20, 0);
     }
 
     @Test
     void shouldReturnEmptyListWhenNoPolicies() {
-        when(policyStore.listAll()).thenReturn(List.of());
+        when(policyStore.listAll(20, 0)).thenReturn(List.of());
+        when(policyStore.count()).thenReturn(0);
 
         Response response = resource.list(null, 20, 0);
 

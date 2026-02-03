@@ -33,9 +33,7 @@ trino-jdbc = "479"
 resteasy-core = "7.0.1.Final"
 smallrye-jwt = "4.3.0"
 
-# Rate limiting & caching
-bucket4j = "8.7.0"
-caffeine = "3.1.8"
+# Scheduling
 quartz = "2.3.2"
 
 # Webjars
@@ -62,7 +60,6 @@ google-java-format = "1.22.0"
 
 # Static analysis
 errorprone = "2.24.1"
-nullaway = "0.10.18"
 jacoco = "0.8.11"
 
 [libraries]
@@ -139,9 +136,7 @@ resteasy-core = { module = "org.jboss.resteasy:resteasy-core", version.ref = "re
 # Security
 smallrye-jwt = { module = "io.smallrye:smallrye-jwt", version.ref = "smallrye-jwt" }
 
-# Rate limiting & caching
-bucket4j-core = { module = "com.bucket4j:bucket4j-core", version.ref = "bucket4j" }
-caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
+# Scheduling
 quartz = { module = "org.quartz-scheduler:quartz", version.ref = "quartz" }
 
 # Netty DNS resolver for macOS
@@ -153,7 +148,6 @@ webjars-locator-core = { module = "org.webjars:webjars-locator-core", version.re
 
 # ErrorProne
 errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorprone" }
-nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }
 
 # Testing
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
