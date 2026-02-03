@@ -214,6 +214,8 @@ services:
     ports:
       - "8888:8888"
       - "4040:4040"
+    volumes:
+      - spark_ivy_cache:/root/.ivy2
     environment:
       # Catalog config for setup-demo-tables.py
       CATALOG_TYPE: gravitino
@@ -231,6 +233,7 @@ services:
 volumes:
   postgres_data:
   gravitino_sqlite:
+  spark_ivy_cache:
 
 networks:
   default:

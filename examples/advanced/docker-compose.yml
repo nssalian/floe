@@ -180,6 +180,8 @@ services:
     ports:
       - "8888:8888"
       - "4040:4040"
+    volumes:
+      - spark_ivy_cache:/root/.ivy2
     environment:
       CATALOG_TYPE: rest
       CATALOG_NAME: demo
@@ -194,3 +196,4 @@ services:
 
 volumes:
   postgres_data:
+  spark_ivy_cache:

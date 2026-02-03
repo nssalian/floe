@@ -35,7 +35,13 @@ builder = SparkSession.builder \
     .config(f"spark.sql.catalog.{CATALOG_NAME}.s3.access-key-id", S3_ACCESS_KEY) \
     .config(f"spark.sql.catalog.{CATALOG_NAME}.s3.secret-access-key", S3_SECRET_KEY) \
     .config(f"spark.sql.catalog.{CATALOG_NAME}.s3.path-style-access", "true") \
-    .config("spark.sql.defaultCatalog", CATALOG_NAME)
+    .config("spark.sql.defaultCatalog", CATALOG_NAME) \
+    .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
+    .config("spark.hadoop.fs.s3a.access.key", S3_ACCESS_KEY) \
+    .config("spark.hadoop.fs.s3a.secret.key", S3_SECRET_KEY) \
+    .config("spark.hadoop.fs.s3a.endpoint", S3_ENDPOINT) \
+    .config("spark.hadoop.fs.s3a.path.style.access", "true") \
+    .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "false")
 
 # Catalog-specific configuration
 if CATALOG_TYPE == "rest":

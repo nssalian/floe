@@ -95,7 +95,7 @@ define start_spark
 		echo "Waiting for services to be ready..."; \
 		sleep 10; \
 		docker cp scripts/setup-demo-tables.py $$SPARK:/tmp/setup-demo-tables.py; \
-		docker exec $$SPARK spark-submit --master 'local[*]' /tmp/setup-demo-tables.py; \
+		docker exec -e HOME=/home/iceberg $$SPARK spark-submit --master 'local[*]' --packages org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262 --conf spark.hadoop.fs.s3a.impl=org.apache.hadoop.fs.s3a.S3AFileSystem /tmp/setup-demo-tables.py; \
 		if [ "$(SKIP_DEMO_POLICIES)" != "1" ]; then ./scripts/setup-demo-policies.sh; fi; \
 	fi
 	@echo ""
@@ -114,7 +114,7 @@ define start_trino
 		echo "Waiting for services to be ready..."; \
 		sleep 10; \
 		docker cp scripts/setup-demo-tables.py $$SPARK:/tmp/setup-demo-tables.py; \
-		docker exec $$SPARK spark-submit --master 'local[*]' /tmp/setup-demo-tables.py; \
+		docker exec -e HOME=/home/iceberg $$SPARK spark-submit --master 'local[*]' --packages org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262 --conf spark.hadoop.fs.s3a.impl=org.apache.hadoop.fs.s3a.S3AFileSystem /tmp/setup-demo-tables.py; \
 		if [ "$(SKIP_DEMO_POLICIES)" != "1" ]; then ./scripts/setup-demo-policies.sh; fi; \
 	fi
 	@echo ""
