@@ -261,7 +261,7 @@ class NessieCatalogClientTest {
         void shouldAcceptAdditionalProperties() {
             Map<String, String> extraProps =
                     Map.of(
-                            "s3.endpoint", "http://minio:9000",
+                            "s3.endpoint", "http://seaweedfs:8333",
                             "s3.path-style-access", "true");
 
             var builder =

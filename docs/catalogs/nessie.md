@@ -19,8 +19,8 @@ FLOE_CATALOG_NESSIE_URI=http://nessie:19120/api/v1
 FLOE_CATALOG_NESSIE_REF=main
 FLOE_CATALOG_WAREHOUSE=s3://warehouse/
 
-# S3/MinIO storage (required for reading table data)
-FLOE_CATALOG_S3_ENDPOINT=http://minio:9000
+# S3 storage (required for reading table data)
+FLOE_CATALOG_S3_ENDPOINT=http://seaweedfs:8333
 FLOE_CATALOG_S3_ACCESS_KEY_ID=admin
 FLOE_CATALOG_S3_SECRET_ACCESS_KEY=password
 FLOE_CATALOG_S3_REGION=us-east-1
@@ -34,7 +34,7 @@ FLOE_CATALOG_S3_REGION=us-east-1
 | `FLOE_CATALOG_NESSIE_REF` | No | Branch or tag (default: `main`) |
 | `FLOE_CATALOG_NESSIE_TOKEN` | No | Bearer token for authentication |
 | `FLOE_CATALOG_WAREHOUSE` | Yes | Warehouse location (e.g., `s3://warehouse/`) |
-| `FLOE_CATALOG_S3_ENDPOINT` | Yes* | S3/MinIO endpoint (*required for MinIO or custom S3) |
+| `FLOE_CATALOG_S3_ENDPOINT` | Yes* | S3 endpoint (*required for custom S3-compatible storage) |
 | `FLOE_CATALOG_S3_ACCESS_KEY_ID` | Yes | S3 access key |
 | `FLOE_CATALOG_S3_SECRET_ACCESS_KEY` | Yes | S3 secret key |
 | `FLOE_CATALOG_S3_REGION` | No | S3 region (default: `us-east-1`) |
@@ -53,7 +53,7 @@ Both Spark and Trino have full support for all Iceberg maintenance operations wi
 
 ## How It Works
 
-Nessie stores pointers to Iceberg table metadata (metadata location, snapshot ID, schema ID) rather than the actual data. Table data remains in object storage (S3/MinIO).
+Nessie stores pointers to Iceberg table metadata (metadata location, snapshot ID, schema ID) rather than the actual data. Table data remains in object storage (S3).
 
 **Implicit namespaces**: Nessie namespaces are derived from table paths and don't need to be explicitly created. 
 When you create a table at `test.orders`, the `test` namespace is automatically recognized.

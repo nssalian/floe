@@ -122,7 +122,7 @@ class CatalogClientProducerTest {
         @Test
         @DisplayName("creates REST catalog client with S3 endpoint")
         void createsRestCatalogClientWithS3Endpoint() {
-            when(s3Config.endpoint()).thenReturn(Optional.of("http://minio:9000"));
+            when(s3Config.endpoint()).thenReturn(Optional.of("http://seaweedfs:8333"));
             when(s3Config.accessKeyId()).thenReturn("admin");
             when(s3Config.secretAccessKey()).thenReturn("password");
 
@@ -373,7 +373,7 @@ class CatalogClientProducerTest {
             when(lakekeeperConfig.nestedNamespaceEnabled()).thenReturn(true);
             when(lakekeeperConfig.vendedCredentialsEnabled()).thenReturn(true);
 
-            when(s3Config.endpoint()).thenReturn(Optional.of("http://minio:9000"));
+            when(s3Config.endpoint()).thenReturn(Optional.of("http://seaweedfs:8333"));
             when(s3Config.accessKeyId()).thenReturn("admin");
             when(s3Config.secretAccessKey()).thenReturn("password");
 
@@ -504,7 +504,7 @@ class CatalogClientProducerTest {
             when(gravitinoConfig.metalake()).thenReturn(Optional.empty());
             when(gravitinoConfig.vendedCredentialsEnabled()).thenReturn(true);
 
-            when(s3Config.endpoint()).thenReturn(Optional.of("http://minio:9000"));
+            when(s3Config.endpoint()).thenReturn(Optional.of("http://seaweedfs:8333"));
             when(s3Config.accessKeyId()).thenReturn("admin");
             when(s3Config.secretAccessKey()).thenReturn("password");
 
@@ -628,7 +628,7 @@ class CatalogClientProducerTest {
         @Test
         @DisplayName("applies S3 config when endpoint is present")
         void appliesS3ConfigWhenEndpointPresent() {
-            when(s3Config.endpoint()).thenReturn(Optional.of("http://minio:9000"));
+            when(s3Config.endpoint()).thenReturn(Optional.of("http://seaweedfs:8333"));
             when(s3Config.accessKeyId()).thenReturn("admin");
             when(s3Config.secretAccessKey()).thenReturn("password");
             when(s3Config.region()).thenReturn("us-west-2");

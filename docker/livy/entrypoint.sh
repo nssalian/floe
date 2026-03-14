@@ -1,4 +1,4 @@
-g#!/bin/bash
+#!/bin/bash
 
 #
 # Copyright 2026 The Floe Authors

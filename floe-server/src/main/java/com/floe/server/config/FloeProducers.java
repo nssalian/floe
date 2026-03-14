@@ -513,7 +513,7 @@ public class FloeProducers {
         return props;
     }
 
-    /** Adds S3/MinIO properties if an endpoint is configured. */
+    /** Adds S3 properties if an endpoint is configured. */
     private void addS3Properties(Map<String, String> props, FloeConfig.Catalog catalog) {
         catalog.s3()
                 .endpoint()
@@ -537,7 +537,7 @@ public class FloeProducers {
         Map<String, String> conf = new HashMap<>();
         String catalogType = catalog.type().toUpperCase(Locale.ROOT);
 
-        // S3/MinIO Hadoop configuration
+        // S3 Hadoop configuration
         s3.endpoint()
                 .filter(ep -> !ep.isBlank())
                 .ifPresent(

@@ -53,7 +53,7 @@ class HiveMetastoreCatalogClientTest {
         void shouldAcceptAdditionalProperties() {
             Map<String, String> props = new HashMap<>();
             props.put("hive.metastore.client.socket.timeout", "60s");
-            props.put("s3.endpoint", "http://minio:9000");
+            props.put("s3.endpoint", "http://seaweedfs:8333");
 
             HiveMetastoreCatalogClient client =
                     new HiveMetastoreCatalogClient(CATALOG_NAME, METASTORE_URI, WAREHOUSE, props);
@@ -67,7 +67,7 @@ class HiveMetastoreCatalogClientTest {
         void shouldAcceptHadoopConfig() {
             Configuration hadoopConf = new Configuration();
             hadoopConf.set("hive.metastore.uris", METASTORE_URI);
-            hadoopConf.set("fs.s3a.endpoint", "http://minio:9000");
+            hadoopConf.set("fs.s3a.endpoint", "http://seaweedfs:8333");
 
             HiveMetastoreCatalogClient client =
                     new HiveMetastoreCatalogClient(CATALOG_NAME, hadoopConf, WAREHOUSE);
@@ -95,10 +95,10 @@ class HiveMetastoreCatalogClientTest {
         void shouldSeparateProperties() {
             Map<String, String> props = new HashMap<>();
             // Hadoop properties (should go to Hadoop config)
-            props.put("hadoop.fs.s3a.endpoint", "http://minio:9000");
+            props.put("hadoop.fs.s3a.endpoint", "http://seaweedfs:8333");
             props.put("hive.metastore.client.socket.timeout", "60s");
             // Iceberg properties (should go to catalog properties)
-            props.put("s3.endpoint", "http://minio:9000");
+            props.put("s3.endpoint", "http://seaweedfs:8333");
             props.put("io-impl", "org.apache.iceberg.aws.s3.S3FileIO");
 
             // Verify the separation logic works

@@ -8,7 +8,7 @@
 # Services:
 #   - Floe server (http://localhost:9091)
 #   - Nessie catalog server
-#   - MinIO (S3-compatible storage)
+#   - SeaweedFS (S3-compatible storage)
 #   - Postgres (Floe persistence)
 #   - Livy (Spark job submission)
 #   - Trino (optional, --profile trino)
@@ -16,7 +16,6 @@
 # Access:
 #   - Floe UI: http://localhost:9091
 #   - Nessie API: http://localhost:19120
-#   - MinIO Console: http://localhost:9001 (admin/password)
 
 services:
   # Project Nessie - Git-like catalog
@@ -28,35 +27,33 @@ services:
     environment:
       NESSIE_VERSION_STORE_TYPE: IN_MEMORY
 
-  # S3-compatible storage
-  minio:
-    image: minio/minio:latest
-    container_name: nessie-minio
+  # S3-compatible storage (SeaweedFS)
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    container_name: nessie-seaweedfs
     ports:
-      - "19000:9000"
-      - "19001:9001"
+      - "18333:8333"
+      - "19333:9333"
     environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: password
-    command: server /data --console-address ":9001"
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+    command: "server -dir=/data -s3 -s3.port=8333 -s3.allowEmptyFolder"
 
   # Create S3 bucket
-  mc:
-    image: minio/mc:latest
-    container_name: nessie-mc
+  create-bucket:
+    image: amazon/aws-cli:latest
+    container_name: nessie-create-bucket
     depends_on:
-      minio:
-        condition: service_healthy
+      - seaweedfs
     entrypoint: >
       /bin/sh -c "
-      mc alias set minio http://minio:9000 admin password;
-      mc mb minio/warehouse --ignore-existing;
-      mc anonymous set download minio/warehouse;
+      export AWS_ACCESS_KEY_ID=admin;
+      export AWS_SECRET_ACCESS_KEY=password;
+      export AWS_DEFAULT_REGION=us-east-1;
+      until aws --endpoint-url http://seaweedfs:8333 s3 ls >/dev/null 2>&1; do
+        sleep 1;
+      done;
+      aws --endpoint-url http://seaweedfs:8333 s3 mb s3://warehouse || true;
       exit 0;
       "
 
@@ -98,7 +95,7 @@ services:
       FLOE_CATALOG_NESSIE_REF: main
       FLOE_CATALOG_WAREHOUSE: s3://warehouse/
       # S3
-      FLOE_CATALOG_S3_ENDPOINT: http://minio:9000
+      FLOE_CATALOG_S3_ENDPOINT: http://seaweedfs:8333
       FLOE_CATALOG_S3_ACCESS_KEY_ID: admin
       FLOE_CATALOG_S3_SECRET_ACCESS_KEY: password
       FLOE_CATALOG_S3_REGION: us-east-1
@@ -138,7 +135,7 @@ services:
       AWS_REGION: us-east-1
     depends_on:
       - nessie
-      - minio
+      - seaweedfs
 
   # Trino (optional)
   trino:
@@ -153,7 +150,7 @@ services:
       NESSIE_URI: http://nessie:19120/api/v1
       NESSIE_REF: main
       CATALOG_WAREHOUSE: s3://warehouse/
-      S3_ENDPOINT: http://minio:9000
+      S3_ENDPOINT: http://seaweedfs:8333
       S3_PATH_STYLE: "true"
       S3_REGION: us-east-1
       AWS_ACCESS_KEY_ID: admin
@@ -167,7 +164,7 @@ services:
     entrypoint: ["/usr/local/bin/entrypoint.sh"]
     depends_on:
       - nessie
-      - minio
+      - seaweedfs
 
   # Spark (for creating test tables)
   spark:
@@ -188,7 +185,7 @@ services:
       NESSIE_URI: http://nessie:19120/api/v1
       NESSIE_REF: main
       CATALOG_WAREHOUSE: s3://warehouse/
-      S3_ENDPOINT: http://minio:9000
+      S3_ENDPOINT: http://seaweedfs:8333
       AWS_ACCESS_KEY_ID: admin
       AWS_SECRET_ACCESS_KEY: password
       AWS_REGION: us-east-1

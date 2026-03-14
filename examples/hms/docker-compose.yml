@@ -9,7 +9,7 @@
 #   - Floe server (http://localhost:9091)
 #   - Hive Metastore (Standalone 3.1.3 - compatible with Iceberg)
 #   - Postgres (HMS + Floe persistence)
-#   - MinIO (S3-compatible storage)
+#   - SeaweedFS (S3-compatible storage)
 #   - Livy (Spark job submission)
 #   - Trino (optional, --profile trino)
 #
@@ -35,40 +35,38 @@ services:
       timeout: 5s
       retries: 5
 
-  # S3-compatible storage
-  minio:
-    image: minio/minio:latest
-    container_name: hms-minio
+  # S3-compatible storage (SeaweedFS)
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    container_name: hms-seaweedfs
     ports:
-      - "19000:9000"
-      - "19001:9001"
+      - "18333:8333"
+      - "19333:9333"
     environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: password
-    command: server /data --console-address ":9001"
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+    command: "server -dir=/data -s3 -s3.port=8333 -s3.allowEmptyFolder"
 
   # Create S3 bucket
-  mc:
-    image: minio/mc:latest
-    container_name: hms-mc
+  create-bucket:
+    image: amazon/aws-cli:latest
+    container_name: hms-create-bucket
     depends_on:
-      minio:
-        condition: service_healthy
+      - seaweedfs
     entrypoint: >
       /bin/sh -c "
-      mc alias set minio http://minio:9000 admin password;
-      mc mb minio/warehouse --ignore-existing;
-      mc anonymous set download minio/warehouse;
+      export AWS_ACCESS_KEY_ID=admin;
+      export AWS_SECRET_ACCESS_KEY=password;
+      export AWS_DEFAULT_REGION=us-east-1;
+      until aws --endpoint-url http://seaweedfs:8333 s3 ls >/dev/null 2>&1; do
+        sleep 1;
+      done;
+      aws --endpoint-url http://seaweedfs:8333 s3 mb s3://warehouse || true;
       exit 0;
       "
 
   # Hive Metastore (Standalone 3.1.3 - compatible with Iceberg)
-  # Uses embedded Derby for metadata, S3/MinIO for table data
+  # Uses embedded Derby for metadata, S3 for table data
   # Note: HMS starts with a namespace "default"
   hive-metastore:
     image: ghcr.io/criccomini/hive-metastore-standalone:latest
@@ -81,7 +79,7 @@ services:
       - ./hive-site.xml:/opt/hive-metastore/conf/hive-site.xml:ro
       - ./run.sh:/app/run.sh:ro
     depends_on:
-      mc:
+      create-bucket:
         condition: service_completed_successfully
 
   # Floe Server
@@ -103,7 +101,7 @@ services:
       FLOE_CATALOG_HIVE_URI: thrift://hive-metastore:9083
       FLOE_CATALOG_WAREHOUSE: s3://warehouse/
       # S3
-      FLOE_CATALOG_S3_ENDPOINT: http://minio:9000
+      FLOE_CATALOG_S3_ENDPOINT: http://seaweedfs:8333
       FLOE_CATALOG_S3_ACCESS_KEY_ID: admin
       FLOE_CATALOG_S3_SECRET_ACCESS_KEY: password
       FLOE_CATALOG_S3_REGION: us-east-1
@@ -147,7 +145,7 @@ services:
       AWS_REGION: us-east-1
     depends_on:
       - hive-metastore
-      - minio
+      - seaweedfs
 
   # Trino (optional)
   trino:
@@ -161,7 +159,7 @@ services:
       CATALOG_TYPE: hive_metastore
       HMS_URI: thrift://hive-metastore:9083
       CATALOG_WAREHOUSE: s3://warehouse/
-      S3_ENDPOINT: http://minio:9000
+      S3_ENDPOINT: http://seaweedfs:8333
       S3_PATH_STYLE: "true"
       S3_REGION: us-east-1
       AWS_ACCESS_KEY_ID: admin
@@ -175,7 +173,7 @@ services:
     entrypoint: ["/usr/local/bin/entrypoint.sh"]
     depends_on:
       - hive-metastore
-      - minio
+      - seaweedfs
 
   # Spark (for creating test tables)
   spark:
@@ -195,7 +193,7 @@ services:
       CATALOG_NAME: demo
       HMS_URI: thrift://hive-metastore:9083
       CATALOG_WAREHOUSE: s3://warehouse/
-      S3_ENDPOINT: http://minio:9000
+      S3_ENDPOINT: http://seaweedfs:8333
       AWS_ACCESS_KEY_ID: admin
       AWS_SECRET_ACCESS_KEY: password
       AWS_REGION: us-east-1

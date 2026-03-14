@@ -18,8 +18,8 @@ FLOE_CATALOG_NAME=demo
 FLOE_CATALOG_LAKEKEEPER_URI=http://lakekeeper:8181/catalog
 FLOE_CATALOG_WAREHOUSE=demo
 
-# S3/MinIO storage
-FLOE_CATALOG_S3_ENDPOINT=http://minio:9000
+# S3 storage
+FLOE_CATALOG_S3_ENDPOINT=http://seaweedfs:8333
 FLOE_CATALOG_S3_ACCESS_KEY_ID=admin
 FLOE_CATALOG_S3_SECRET_ACCESS_KEY=password
 FLOE_CATALOG_S3_REGION=us-east-1
@@ -34,7 +34,7 @@ FLOE_CATALOG_S3_REGION=us-east-1
 | `FLOE_CATALOG_LAKEKEEPER_CREDENTIAL` | No | OAuth2 credential in format `clientId:clientSecret` |
 | `FLOE_CATALOG_LAKEKEEPER_OAUTH2_SERVER_URI` | No | OAuth2 token endpoint |
 | `FLOE_CATALOG_LAKEKEEPER_SCOPE` | No | OAuth2 scope |
-| `FLOE_CATALOG_S3_ENDPOINT` | Yes* | S3/MinIO endpoint (*required for MinIO or custom S3) |
+| `FLOE_CATALOG_S3_ENDPOINT` | Yes* | S3 endpoint (*required for custom S3-compatible storage) |
 | `FLOE_CATALOG_S3_ACCESS_KEY_ID` | Yes | S3 access key |
 | `FLOE_CATALOG_S3_SECRET_ACCESS_KEY` | Yes | S3 secret key |
 | `FLOE_CATALOG_S3_REGION` | No | S3 region (default: `us-east-1`) |

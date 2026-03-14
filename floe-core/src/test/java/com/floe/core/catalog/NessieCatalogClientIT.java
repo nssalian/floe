@@ -38,7 +38,7 @@ import org.testcontainers.utility.DockerImageName;
 /**
  * Integration test for NessieCatalogClient using Testcontainers.
  *
- * <p>Spins up Nessie server and MinIO containers for testing.
+ * <p>Spins up Nessie server and SeaweedFS containers for testing.
  *
  * <p>Note: NessieCatalogClient requires Nessie with Iceberg REST API compatibility enabled. The
  * standard Nessie Docker image may not have this enabled. Tests will be skipped if the client
@@ -48,15 +48,17 @@ import org.testcontainers.utility.DockerImageName;
 @DisplayName("NessieCatalogClient Integration Tests")
 class NessieCatalogClientIT {
 
-    private static final Logger LOG = LoggerFactory.getLogger(NessieCatalogClientIT.class);
+    private static final Logger LOG = LoggerFactory.getLogger(
+        NessieCatalogClientIT.class
+    );
 
-    private static final String MINIO_ACCESS_KEY = "admin";
-    private static final String MINIO_SECRET_KEY = "password";
-    private static final String MINIO_BUCKET = "warehouse";
+    private static final String S3_ACCESS_KEY = "admin";
+    private static final String S3_SECRET_KEY = "password";
+    private static final String S3_BUCKET = "warehouse";
     private static final String CATALOG_NAME = "nessie";
 
     private static Network network;
-    private static GenericContainer<?> minio;
+    private static GenericContainer<?> seaweedfs;
     private static GenericContainer<?> nessie;
     private static String nessieUri;
     private static String s3Endpoint;
@@ -74,41 +76,59 @@ class NessieCatalogClientIT {
         try {
             network = Network.newNetwork();
 
-            minio =
-                    new GenericContainer<>(DockerImageName.parse("minio/minio:latest"))
-                            .withNetwork(network)
-                            .withNetworkAliases("minio")
-                            .withExposedPorts(9000)
-                            .withEnv("MINIO_ROOT_USER", MINIO_ACCESS_KEY)
-                            .withEnv("MINIO_ROOT_PASSWORD", MINIO_SECRET_KEY)
-                            .withCommand("server", "/data")
-                            .waitingFor(Wait.forHttp("/minio/health/ready").forPort(9000))
-                            .withLogConsumer(new Slf4jLogConsumer(LOG).withPrefix("minio"));
+            seaweedfs = new GenericContainer<>(
+                DockerImageName.parse("chrislusf/seaweedfs:latest")
+            )
+                .withNetwork(network)
+                .withNetworkAliases("seaweedfs")
+                .withExposedPorts(8333, 9333)
+                .withEnv("AWS_ACCESS_KEY_ID", S3_ACCESS_KEY)
+                .withEnv("AWS_SECRET_ACCESS_KEY", S3_SECRET_KEY)
+                .withCommand(
+                    "server",
+                    "-dir=/data",
+                    "-s3",
+                    "-s3.port=8333",
+                    "-s3.allowEmptyFolder"
+                )
+                .waitingFor(Wait.forHttp("/cluster/status").forPort(9333))
+                .withLogConsumer(
+                    new Slf4jLogConsumer(LOG).withPrefix("seaweedfs")
+                );
 
-            minio.start();
-            createMinioBucket();
+            seaweedfs.start();
+            createS3Bucket();
 
             // Use Nessie with Iceberg REST catalog support
             // Note: Standard Nessie 0.76+ should have /iceberg endpoint
-            nessie =
-                    new GenericContainer<>(
-                                    DockerImageName.parse("ghcr.io/projectnessie/nessie:0.76.0"))
-                            .withNetwork(network)
-                            .withNetworkAliases("nessie")
-                            .withExposedPorts(19120)
-                            .withEnv(
-                                    "NESSIE_CATALOG_DEFAULT_WAREHOUSE",
-                                    "s3://" + MINIO_BUCKET + "/")
-                            .waitingFor(Wait.forHttp("/api/v2/config").forPort(19120))
-                            .withLogConsumer(new Slf4jLogConsumer(LOG).withPrefix("nessie"));
+            nessie = new GenericContainer<>(
+                DockerImageName.parse("ghcr.io/projectnessie/nessie:0.76.0")
+            )
+                .withNetwork(network)
+                .withNetworkAliases("nessie")
+                .withExposedPorts(19120)
+                .withEnv(
+                    "NESSIE_CATALOG_DEFAULT_WAREHOUSE",
+                    "s3://" + S3_BUCKET + "/"
+                )
+                .waitingFor(Wait.forHttp("/api/v2/config").forPort(19120))
+                .withLogConsumer(
+                    new Slf4jLogConsumer(LOG).withPrefix("nessie")
+                );
 
             nessie.start();
 
-            nessieUri =
-                    String.format(
-                            "http://%s:%d/api/v1", nessie.getHost(), nessie.getMappedPort(19120));
-            s3Endpoint = String.format("http://%s:%d", minio.getHost(), minio.getMappedPort(9000));
-            warehouse = "s3://" + MINIO_BUCKET + "/nessie";
+            nessieUri = String.format(
+                "http://%s:%d/api/v1",
+                nessie.getHost(),
+                nessie.getMappedPort(19120)
+            );
+            s3Endpoint = String.format(
+                "http://%s:%d",
+                seaweedfs.getHost(),
+                seaweedfs.getMappedPort(8333)
+            );
+            warehouse = "s3://" + S3_BUCKET + "/nessie";
 
             LOG.info("Nessie URI: {}", nessieUri);
             LOG.info("S3 Endpoint: {}", s3Endpoint);
@@ -123,9 +143,10 @@ class NessieCatalogClientIT {
                 LOG.info("NessieCatalogClient successfully connected");
             } catch (Exception e) {
                 LOG.warn(
-                        "NessieCatalogClient cannot connect (Nessie may not have Iceberg REST"
-                                + " support enabled): {}",
-                        e.getMessage());
+                    "NessieCatalogClient cannot connect (Nessie may not have Iceberg REST" +
+                        " support enabled): {}",
+                    e.getMessage()
+                );
                 clientWorks = false;
             }
         } catch (Exception e) {
@@ -143,21 +164,31 @@ class NessieCatalogClientIT {
         }
     }
 
-    private static void createMinioBucket() throws Exception {
-        try (var mcContainer =
-                new GenericContainer<>(DockerImageName.parse("minio/mc:latest"))
-                        .withNetwork(network)
-                        .withCommand(
-                                "sh",
-                                "-c",
-                                String.format(
-                                        "mc alias set myminio http://minio:9000 %s %s && mc mb"
-                                                + " --ignore-existing myminio/%s",
-                                        MINIO_ACCESS_KEY, MINIO_SECRET_KEY, MINIO_BUCKET))) {
-            mcContainer.start();
+    private static void createS3Bucket() throws Exception {
+        try (
+            var s3ClientContainer = new GenericContainer<>(
+                DockerImageName.parse("amazon/aws-cli:latest")
+            )
+                .withNetwork(network)
+                .withCommand(
+                    "sh",
+                    "-c",
+                    String.format(
+                        "export AWS_ACCESS_KEY_ID=%s; " +
+                            "export AWS_SECRET_ACCESS_KEY=%s; " +
+                            "export AWS_DEFAULT_REGION=us-east-1; " +
+                            "until aws --endpoint-url http://seaweedfs:8333 s3 ls >/dev/null 2>&1; do sleep 1; done; " +
+                            "aws --endpoint-url http://seaweedfs:8333 s3 mb s3://%s || true",
+                        S3_ACCESS_KEY,
+                        S3_SECRET_KEY,
+                        S3_BUCKET
+                    )
+                )
+        ) {
+            s3ClientContainer.start();
             Thread.sleep(2000);
         }
-        LOG.info("MinIO bucket '{}' created", MINIO_BUCKET);
+        LOG.info("S3 bucket '{}' created", S3_BUCKET);
     }
 
     @AfterAll
@@ -165,8 +196,8 @@ class NessieCatalogClientIT {
         if (nessie != null) {
             nessie.stop();
         }
-        if (minio != null) {
-            minio.stop();
+        if (seaweedfs != null) {
+            seaweedfs.stop();
         }
         if (network != null) {
             network.close();
@@ -177,53 +208,58 @@ class NessieCatalogClientIT {
     void checkPreconditions() {
         assumeTrue(containersStarted, "Containers not started");
         assumeTrue(
-                clientWorks,
-                "NessieCatalogClient cannot connect - Nessie may not have Iceberg REST support");
+            clientWorks,
+            "NessieCatalogClient cannot connect - Nessie may not have Iceberg REST support"
+        );
     }
 
     private static final String TEST_BEARER_TOKEN = "test-token-for-nessie";
 
     private static NessieCatalogClient createClientInternal() {
         return NessieCatalogClient.builder()
-                .catalogName(CATALOG_NAME)
-                .nessieUri(nessieUri)
-                .warehouse(warehouse)
-                .ref("main")
-                .additionalProperties(
-                        Map.of(
-                                "io-impl",
-                                "org.apache.iceberg.aws.s3.S3FileIO",
-                                "s3.endpoint",
-                                s3Endpoint,
-                                "s3.access-key-id",
-                                MINIO_ACCESS_KEY,
-                                "s3.secret-access-key",
-                                MINIO_SECRET_KEY,
-                                "s3.path-style-access",
-                                "true"))
-                .build();
+            .catalogName(CATALOG_NAME)
+            .nessieUri(nessieUri)
+            .warehouse(warehouse)
+            .ref("main")
+            .additionalProperties(
+                Map.of(
+                    "io-impl",
+                    "org.apache.iceberg.aws.s3.S3FileIO",
+                    "s3.endpoint",
+                    s3Endpoint,
+                    "s3.access-key-id",
+                    S3_ACCESS_KEY,
+                    "s3.secret-access-key",
+                    S3_SECRET_KEY,
+                    "s3.path-style-access",
+                    "true"
+                )
+            )
+            .build();
     }
 
     private static NessieCatalogClient createClientWithBearerToken() {
         return NessieCatalogClient.builder()
-                .catalogName(CATALOG_NAME)
-                .nessieUri(nessieUri)
-                .warehouse(warehouse)
-                .ref("main")
-                .bearerToken(TEST_BEARER_TOKEN)
-                .additionalProperties(
-                        Map.of(
-                                "io-impl",
-                                "org.apache.iceberg.aws.s3.S3FileIO",
-                                "s3.endpoint",
-                                s3Endpoint,
-                                "s3.access-key-id",
-                                MINIO_ACCESS_KEY,
-                                "s3.secret-access-key",
-                                MINIO_SECRET_KEY,
-                                "s3.path-style-access",
-                                "true"))
-                .build();
+            .catalogName(CATALOG_NAME)
+            .nessieUri(nessieUri)
+            .warehouse(warehouse)
+            .ref("main")
+            .bearerToken(TEST_BEARER_TOKEN)
+            .additionalProperties(
+                Map.of(
+                    "io-impl",
+                    "org.apache.iceberg.aws.s3.S3FileIO",
+                    "s3.endpoint",
+                    s3Endpoint,
+                    "s3.access-key-id",
+                    S3_ACCESS_KEY,
+                    "s3.secret-access-key",
+                    S3_SECRET_KEY,
+                    "s3.path-style-access",
+                    "true"
+                )
+            )
+            .build();
     }
 
     @Test
@@ -258,7 +294,11 @@ class NessieCatalogClientIT {
     @DisplayName("should return empty for non-existent table")
     void shouldReturnEmptyForNonExistentTable() {
         NessieCatalogClient client = createClientInternal();
-        var tableId = new TableIdentifier(CATALOG_NAME, "test_ns", "nonexistent_table");
+        var tableId = new TableIdentifier(
+            CATALOG_NAME,
+            "test_ns",
+            "nonexistent_table"
+        );
         var metadataOpt = client.getTableMetadata(tableId);
         assertThat(metadataOpt).isEmpty();
         client.close();
@@ -277,7 +317,9 @@ class NessieCatalogClientIT {
     void shouldHaveNoAuthConfigWithoutToken() {
         NessieCatalogClient client = createClientInternal();
         assertThat(client.getAuthConfig()).isNotNull();
-        assertThat(client.getAuthConfig().authType()).isEqualTo(CatalogAuthConfig.AuthType.NONE);
+        assertThat(client.getAuthConfig().authType()).isEqualTo(
+            CatalogAuthConfig.AuthType.NONE
+        );
         client.close();
     }
 
@@ -286,10 +328,14 @@ class NessieCatalogClientIT {
     void shouldHaveBearerAuthConfigWithToken() {
         NessieCatalogClient client = createClientWithBearerToken();
         assertThat(client.getAuthConfig()).isNotNull();
-        assertThat(client.getAuthConfig().authType()).isEqualTo(CatalogAuthConfig.AuthType.BEARER);
-        assertThat(client.getAuthConfig()).isInstanceOf(CatalogAuthConfig.BearerToken.class);
+        assertThat(client.getAuthConfig().authType()).isEqualTo(
+            CatalogAuthConfig.AuthType.BEARER
+        );
+        assertThat(client.getAuthConfig()).isInstanceOf(
+            CatalogAuthConfig.BearerToken.class
+        );
         CatalogAuthConfig.BearerToken bearerConfig =
-                (CatalogAuthConfig.BearerToken) client.getAuthConfig();
+            (CatalogAuthConfig.BearerToken) client.getAuthConfig();
         assertThat(bearerConfig.token()).isEqualTo(TEST_BEARER_TOKEN);
         client.close();
     }

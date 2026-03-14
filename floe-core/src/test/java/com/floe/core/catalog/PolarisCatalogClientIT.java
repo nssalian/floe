@@ -40,7 +40,7 @@ import org.testcontainers.utility.DockerImageName;
 /**
  * Integration test for PolarisCatalogClient using Testcontainers.
  *
- * <p>Spins up Polaris and MinIO containers for testing.
+ * <p>Spins up Polaris and SeaweedFS containers for testing.
  *
  * <p>Note: Apache Polaris requires significant setup and may not be available in all environments.
  * Tests are skipped if containers cannot start.
@@ -49,15 +49,17 @@ import org.testcontainers.utility.DockerImageName;
 @DisplayName("PolarisCatalogClient Integration Tests")
 class PolarisCatalogClientIT {
 
-    private static final Logger LOG = LoggerFactory.getLogger(PolarisCatalogClientIT.class);
+    private static final Logger LOG = LoggerFactory.getLogger(
+        PolarisCatalogClientIT.class
+    );
 
-    private static final String MINIO_ACCESS_KEY = "admin";
-    private static final String MINIO_SECRET_KEY = "password";
-    private static final String MINIO_BUCKET = "warehouse";
+    private static final String S3_ACCESS_KEY = "admin";
+    private static final String S3_SECRET_KEY = "password";
+    private static final String S3_BUCKET = "warehouse";
     private static final String CATALOG_NAME = "polaris";
 
     private static Network network;
-    private static GenericContainer<?> minio;
+    private static GenericContainer<?> seaweedfs;
     private static GenericContainer<?> polaris;
     private static String polarisUri;
     private static String s3Endpoint;
@@ -69,8 +71,9 @@ class PolarisCatalogClientIT {
 
     // Pattern to extract credentials from Polaris log output
     // Format: "realm: POLARIS root principal credentials: <clientId>:<clientSecret>"
-    private static final Pattern CREDENTIALS_PATTERN =
-            Pattern.compile("root principal credentials: ([^:]+):(.+)");
+    private static final Pattern CREDENTIALS_PATTERN = Pattern.compile(
+        "root principal credentials: ([^:]+):(.+)"
+    );
 
     @BeforeAll
     static void setUp() {
@@ -82,49 +85,63 @@ class PolarisCatalogClientIT {
         try {
             network = Network.newNetwork();
 
-            minio =
-                    new GenericContainer<>(DockerImageName.parse("minio/minio:latest"))
-                            .withNetwork(network)
-                            .withNetworkAliases("minio")
-                            .withExposedPorts(9000)
-                            .withEnv("MINIO_ROOT_USER", MINIO_ACCESS_KEY)
-                            .withEnv("MINIO_ROOT_PASSWORD", MINIO_SECRET_KEY)
-                            .withCommand("server", "/data")
-                            .waitingFor(Wait.forHttp("/minio/health/ready").forPort(9000))
-                            .withLogConsumer(new Slf4jLogConsumer(LOG).withPrefix("minio"));
+            seaweedfs = new GenericContainer<>(
+                DockerImageName.parse("chrislusf/seaweedfs:latest")
+            )
+                .withNetwork(network)
+                .withNetworkAliases("seaweedfs")
+                .withExposedPorts(8333, 9333)
+                .withEnv("AWS_ACCESS_KEY_ID", S3_ACCESS_KEY)
+                .withEnv("AWS_SECRET_ACCESS_KEY", S3_SECRET_KEY)
+                .withCommand(
+                    "server",
+                    "-dir=/data",
+                    "-s3",
+                    "-s3.port=8333",
+                    "-s3.allowEmptyFolder"
+                )
+                .waitingFor(Wait.forHttp("/cluster/status").forPort(9333))
+                .withLogConsumer(
+                    new Slf4jLogConsumer(LOG).withPrefix("seaweedfs")
+                );
 
-            minio.start();
-            createMinioBucket();
+            seaweedfs.start();
+            createS3Bucket();
 
             // Polaris has separate API (8181) and management (8182) ports
             // Health endpoint is /q/health on management port
             // Capture credentials from container logs
             AtomicReference<String> capturedClientId = new AtomicReference<>();
-            AtomicReference<String> capturedClientSecret = new AtomicReference<>();
+            AtomicReference<String> capturedClientSecret =
+                new AtomicReference<>();
 
-            polaris =
-                    new GenericContainer<>(DockerImageName.parse("apache/polaris:latest"))
-                            .withNetwork(network)
-                            .withNetworkAliases("polaris")
-                            .withExposedPorts(8181, 8182)
-                            .waitingFor(
-                                    Wait.forHttp("/q/health")
-                                            .forPort(8182)
-                                            .forStatusCode(200)
-                                            .withStartupTimeout(java.time.Duration.ofMinutes(1)))
-                            .withLogConsumer(new Slf4jLogConsumer(LOG).withPrefix("polaris"))
-                            .withLogConsumer(
-                                    outputFrame -> {
-                                        String log = outputFrame.getUtf8String();
-                                        Matcher matcher = CREDENTIALS_PATTERN.matcher(log);
-                                        if (matcher.find()) {
-                                            capturedClientId.set(matcher.group(1));
-                                            capturedClientSecret.set(matcher.group(2).trim());
-                                            LOG.info(
-                                                    "Captured Polaris credentials: clientId={}",
-                                                    capturedClientId.get());
-                                        }
-                                    });
+            polaris = new GenericContainer<>(
+                DockerImageName.parse("apache/polaris:latest")
+            )
+                .withNetwork(network)
+                .withNetworkAliases("polaris")
+                .withExposedPorts(8181, 8182)
+                .waitingFor(
+                    Wait.forHttp("/q/health")
+                        .forPort(8182)
+                        .forStatusCode(200)
+                        .withStartupTimeout(java.time.Duration.ofMinutes(1))
+                )
+                .withLogConsumer(
+                    new Slf4jLogConsumer(LOG).withPrefix("polaris")
+                )
+                .withLogConsumer(outputFrame -> {
+                    String log = outputFrame.getUtf8String();
+                    Matcher matcher = CREDENTIALS_PATTERN.matcher(log);
+                    if (matcher.find()) {
+                        capturedClientId.set(matcher.group(1));
+                        capturedClientSecret.set(matcher.group(2).trim());
+                        LOG.info(
+                            "Captured Polaris credentials: clientId={}",
+                            capturedClientId.get()
+                        );
+                    }
+                });
 
             polaris.start();
 
@@ -139,18 +156,28 @@ class PolarisCatalogClientIT {
                 return;
             }
             LOG.info(
-                    "Polaris credentials captured: clientId={}, clientSecret={}",
-                    polarisClientId,
-                    polarisClientSecret != null
-                            ? polarisClientSecret.substring(
-                                            0, Math.min(4, polarisClientSecret.length()))
-                                    + "..."
-                            : null);
+                "Polaris credentials captured: clientId={}, clientSecret={}",
+                polarisClientId,
+                polarisClientSecret != null
+                    ? polarisClientSecret.substring(
+                          0,
+                          Math.min(4, polarisClientSecret.length())
+                      ) +
+                      "..."
+                    : null
+            );
 
-            polarisUri =
-                    String.format("http://%s:%d", polaris.getHost(), polaris.getMappedPort(8181));
-            s3Endpoint = String.format("http://%s:%d", minio.getHost(), minio.getMappedPort(9000));
-            warehouse = "s3://" + MINIO_BUCKET + "/polaris";
+            polarisUri = String.format(
+                "http://%s:%d",
+                polaris.getHost(),
+                polaris.getMappedPort(8181)
+            );
+            s3Endpoint = String.format(
+                "http://%s:%d",
+                seaweedfs.getHost(),
+                seaweedfs.getMappedPort(8333)
+            );
+            warehouse = "s3://" + S3_BUCKET + "/polaris";
 
             LOG.info("Polaris URI: {}", polarisUri);
             LOG.info("S3 Endpoint: {}", s3Endpoint);
@@ -161,8 +188,9 @@ class PolarisCatalogClientIT {
             containersStarted = true;
         } catch (Exception e) {
             LOG.warn(
-                    "Failed to start Polaris containers (this is expected in some environments): {}",
-                    e.getMessage());
+                "Failed to start Polaris containers (this is expected in some environments): {}",
+                e.getMessage()
+            );
             containersStarted = false;
         }
     }
@@ -179,32 +207,39 @@ class PolarisCatalogClientIT {
     private static void createPolarisCatalog() throws Exception {
         // First get an OAuth token
         String tokenUrl = polarisUri + "/api/catalog/v1/oauth/tokens";
-        String tokenBody =
-                String.format(
-                        "grant_type=client_credentials&client_id=%s&client_secret=%s&scope=PRINCIPAL_ROLE:ALL",
-                        polarisClientId, polarisClientSecret);
+        String tokenBody = String.format(
+            "grant_type=client_credentials&client_id=%s&client_secret=%s&scope=PRINCIPAL_ROLE:ALL",
+            polarisClientId,
+            polarisClientSecret
+        );
 
-        HttpURLConnection tokenConn =
-                (HttpURLConnection) URI.create(tokenUrl).toURL().openConnection();
+        HttpURLConnection tokenConn = (HttpURLConnection) URI.create(tokenUrl)
+            .toURL()
+            .openConnection();
         tokenConn.setRequestMethod("POST");
-        tokenConn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+        tokenConn.setRequestProperty(
+            "Content-Type",
+            "application/x-www-form-urlencoded"
+        );
         tokenConn.setDoOutput(true);
         try (OutputStream os = tokenConn.getOutputStream()) {
             os.write(tokenBody.getBytes(StandardCharsets.UTF_8));
         }
 
-        String tokenResponse =
-                new String(tokenConn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        String accessToken = tokenResponse.split("\"access_token\":\"")[1].split("\"")[0];
+        String tokenResponse = new String(
+            tokenConn.getInputStream().readAllBytes(),
+            StandardCharsets.UTF_8
+        );
+        String accessToken = tokenResponse
+            .split("\"access_token\":\"")[1].split("\"")[0];
         // Store token for use by tests
         polarisToken = accessToken;
         LOG.info("Obtained Polaris access token");
 
         // Create the catalog via management API
         String catalogUrl = polarisUri + "/api/management/v1/catalogs";
-        String catalogBody =
-                String.format(
-                        """
+        String catalogBody = String.format(
+            """
             {
                 "catalog": {
                     "name": "%s",
@@ -224,13 +259,23 @@ class PolarisCatalogClientIT {
                 }
             }
             """,
-                        CATALOG_NAME, warehouse, warehouse, s3Endpoint);
+            CATALOG_NAME,
+            warehouse,
+            warehouse,
+            s3Endpoint
+        );
 
-        HttpURLConnection catalogConn =
-                (HttpURLConnection) URI.create(catalogUrl).toURL().openConnection();
+        HttpURLConnection catalogConn = (HttpURLConnection) URI.create(
+            catalogUrl
+        )
+            .toURL()
+            .openConnection();
         catalogConn.setRequestMethod("POST");
         catalogConn.setRequestProperty("Content-Type", "application/json");
-        catalogConn.setRequestProperty("Authorization", "Bearer " + accessToken);
+        catalogConn.setRequestProperty(
+            "Authorization",
+            "Bearer " + accessToken
+        );
         catalogConn.setDoOutput(true);
         try (OutputStream os = catalogConn.getOutputStream()) {
             os.write(catalogBody.getBytes(StandardCharsets.UTF_8));
@@ -240,27 +285,43 @@ class PolarisCatalogClientIT {
         if (responseCode == 201 || responseCode == 200) {
             LOG.info("Created Polaris catalog '{}'", CATALOG_NAME);
         } else {
-            String error =
-                    new String(catalogConn.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
-            LOG.warn("Failed to create Polaris catalog: {} - {}", responseCode, error);
+            String error = new String(
+                catalogConn.getErrorStream().readAllBytes(),
+                StandardCharsets.UTF_8
+            );
+            LOG.warn(
+                "Failed to create Polaris catalog: {} - {}",
+                responseCode,
+                error
+            );
         }
     }
 
-    private static void createMinioBucket() throws Exception {
-        try (var mcContainer =
-                new GenericContainer<>(DockerImageName.parse("minio/mc:latest"))
-                        .withNetwork(network)
-                        .withCommand(
-                                "sh",
-                                "-c",
-                                String.format(
-                                        "mc alias set myminio http://minio:9000 %s %s && mc mb"
-                                                + " --ignore-existing myminio/%s",
-                                        MINIO_ACCESS_KEY, MINIO_SECRET_KEY, MINIO_BUCKET))) {
-            mcContainer.start();
+    private static void createS3Bucket() throws Exception {
+        try (
+            var s3ClientContainer = new GenericContainer<>(
+                DockerImageName.parse("amazon/aws-cli:latest")
+            )
+                .withNetwork(network)
+                .withCommand(
+                    "sh",
+                    "-c",
+                    String.format(
+                        "export AWS_ACCESS_KEY_ID=%s; " +
+                            "export AWS_SECRET_ACCESS_KEY=%s; " +
+                            "export AWS_DEFAULT_REGION=us-east-1; " +
+                            "until aws --endpoint-url http://seaweedfs:8333 s3 ls >/dev/null 2>&1; do sleep 1; done; " +
+                            "aws --endpoint-url http://seaweedfs:8333 s3 mb s3://%s || true",
+                        S3_ACCESS_KEY,
+                        S3_SECRET_KEY,
+                        S3_BUCKET
+                    )
+                )
+        ) {
+            s3ClientContainer.start();
             Thread.sleep(2000);
         }
-        LOG.info("MinIO bucket '{}' created", MINIO_BUCKET);
+        LOG.info("S3 bucket '{}' created", S3_BUCKET);
     }
 
     @AfterAll
@@ -268,8 +329,8 @@ class PolarisCatalogClientIT {
         if (polaris != null) {
             polaris.stop();
         }
-        if (minio != null) {
-            minio.stop();
+        if (seaweedfs != null) {
+            seaweedfs.stop();
         }
         if (network != null) {
             network.close();
@@ -278,23 +339,25 @@ class PolarisCatalogClientIT {
 
     private PolarisCatalogClient createClient() {
         return PolarisCatalogClient.builder()
-                .catalogName(CATALOG_NAME)
-                .polarisUri(polarisUri)
-                .warehouse(warehouse)
-                .token(polarisToken)
-                .additionalProperties(
-                        Map.of(
-                                "io-impl",
-                                "org.apache.iceberg.aws.s3.S3FileIO",
-                                "s3.endpoint",
-                                s3Endpoint,
-                                "s3.access-key-id",
-                                MINIO_ACCESS_KEY,
-                                "s3.secret-access-key",
-                                MINIO_SECRET_KEY,
-                                "s3.path-style-access",
-                                "true"))
-                .build();
+            .catalogName(CATALOG_NAME)
+            .polarisUri(polarisUri)
+            .warehouse(warehouse)
+            .token(polarisToken)
+            .additionalProperties(
+                Map.of(
+                    "io-impl",
+                    "org.apache.iceberg.aws.s3.S3FileIO",
+                    "s3.endpoint",
+                    s3Endpoint,
+                    "s3.access-key-id",
+                    S3_ACCESS_KEY,
+                    "s3.secret-access-key",
+                    S3_SECRET_KEY,
+                    "s3.path-style-access",
+                    "true"
+                )
+            )
+            .build();
     }
 
     @Test

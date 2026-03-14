@@ -34,12 +34,12 @@ fi
 echo "Got token: ${TOKEN:0:20}..."
 
 echo "Creating catalog 'demo'..."
-# INTERNAL catalog with MinIO S3 endpoint (no roleArn needed for MinIO)
+# INTERNAL catalog with S3 endpoint
 # endpoint = external (from client perspective), endpointInternal = from Polaris server
 curl -s -X POST "http://polaris:8181/api/management/v1/catalogs" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"catalog":{"name":"demo","type":"INTERNAL","properties":{"default-base-location":"s3://warehouse/"},"storageConfigInfo":{"storageType":"S3","allowedLocations":["s3://warehouse/"],"endpoint":"http://minio:9000","endpointInternal":"http://minio:9000","pathStyleAccess":true}}}'
+  -d '{"catalog":{"name":"demo","type":"INTERNAL","properties":{"default-base-location":"s3://warehouse/"},"storageConfigInfo":{"storageType":"S3","allowedLocations":["s3://warehouse/"],"endpoint":"http://seaweedfs:8333","endpointInternal":"http://seaweedfs:8333","pathStyleAccess":true}}}'
 echo ""
 
 echo "Creating admin catalog role..."

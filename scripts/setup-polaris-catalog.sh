@@ -24,7 +24,7 @@ POLARIS_URL="${POLARIS_URL:-http://localhost:8181}"
 CLIENT_ID="${CLIENT_ID:-root}"
 CLIENT_SECRET="${CLIENT_SECRET:-secret}"
 CATALOG_NAME="${CATALOG_NAME:-demo}"
-S3_ENDPOINT="${S3_ENDPOINT:-http://minio:9000}"
+S3_ENDPOINT="${S3_ENDPOINT:-http://seaweedfs:8333}"
 S3_BUCKET="${S3_BUCKET:-warehouse}"
 
 echo "Configuring Polaris catalog at $POLARIS_URL..."

@@ -10,7 +10,7 @@ Centralized access control across query engines.
 make example-polaris
 ```
 
-This starts Polaris with MinIO storage and automatically creates the `demo` catalog.
+This starts Polaris with SeaweedFS storage and automatically creates the `demo` catalog.
 
 ## Configuration
 
@@ -46,9 +46,9 @@ The example docker-compose includes a `polaris-init` container that automaticall
 
 For production, use the Polaris Management API or CLI to create catalogs.
 
-## MinIO / S3-Compatible Storage
+## S3-Compatible Storage
 
-When using MinIO or other S3-compatible storage, the catalog must be created with the S3 endpoint configuration:
+When using S3-compatible storage (e.g., SeaweedFS), the catalog must be created with the S3 endpoint configuration:
 
 ```json
 {
@@ -61,14 +61,14 @@ When using MinIO or other S3-compatible storage, the catalog must be created wit
     "storageConfigInfo": {
       "storageType": "S3",
       "allowedLocations": ["s3://warehouse/"],
-      "endpoint": "http://minio:9000",
+      "endpoint": "http://seaweedfs:8333",
       "pathStyleAccess": true
     }
   }
 }
 ```
 
-> **Note:** MinIO does not require `roleArn` - Polaris will use the configured AWS credentials directly.
+> **Note:** S3-compatible storage (e.g., SeaweedFS) does not require `roleArn` - Polaris will use the configured AWS credentials directly.
 
 ## Execution Engines
 
@@ -108,5 +108,5 @@ FLOE_TRINO_JDBC_URL=jdbc:trino://trino:8080
 ## Resources
 
 - [Apache Polaris](https://polaris.apache.org/)
-- [Polaris with MinIO](https://polaris.apache.org/releases/1.1.0/getting-started/minio/)
+- [Polaris Getting Started](https://polaris.apache.org/in-dev/unreleased/getting-started/)
 - [Polaris Documentation](https://polaris.apache.org/in-dev/unreleased/)

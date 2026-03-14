@@ -29,7 +29,7 @@
 #   NESSIE_URI            - Nessie API endpoint
 #   NESSIE_REF            - Nessie ref/branch (default: main)
 #   HMS_URI               - Hive Metastore Thrift URI
-#   S3_ENDPOINT           - S3/MinIO endpoint
+#   S3_ENDPOINT           - S3 endpoint
 #   S3_PATH_STYLE         - Use path-style access (true/false)
 #   S3_REGION             - S3 region
 #   AWS_ACCESS_KEY_ID     - S3 access key
