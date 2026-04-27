@@ -1,4 +1,20 @@
 #!/bin/sh
+#
+# Copyright 2026 The Floe Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 set -e
 
 echo "Waiting for Polaris to be ready..."
@@ -18,12 +34,12 @@ fi
 echo "Got token: ${TOKEN:0:20}..."
 
 echo "Creating catalog 'demo'..."
-# INTERNAL catalog with MinIO S3 endpoint (no roleArn needed for MinIO)
+# INTERNAL catalog with S3 endpoint
 # endpoint = external (from client perspective), endpointInternal = from Polaris server
 curl -s -X POST "http://polaris:8181/api/management/v1/catalogs" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"catalog":{"name":"demo","type":"INTERNAL","properties":{"default-base-location":"s3://warehouse/"},"storageConfigInfo":{"storageType":"S3","allowedLocations":["s3://warehouse/"],"endpoint":"http://minio:9000","endpointInternal":"http://minio:9000","pathStyleAccess":true}}}'
+  -d '{"catalog":{"name":"demo","type":"INTERNAL","properties":{"default-base-location":"s3://warehouse/"},"storageConfigInfo":{"storageType":"S3","allowedLocations":["s3://warehouse/"],"endpoint":"http://seaweedfs:8333","endpointInternal":"http://seaweedfs:8333","pathStyleAccess":true}}}'
 echo ""
 
 echo "Creating admin catalog role..."

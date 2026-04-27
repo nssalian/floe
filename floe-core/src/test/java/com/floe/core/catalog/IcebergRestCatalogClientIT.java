@@ -1,3 +1,19 @@
+/*
+ * Copyright 2026 The Floe Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.floe.core.catalog;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -17,21 +33,23 @@ import org.testcontainers.utility.DockerImageName;
 /**
  * Integration test for IcebergRestCatalogClient using Testcontainers.
  *
- * <p>Spins up MinIO and Iceberg REST catalog containers for testing.
+ * <p>Spins up SeaweedFS and Iceberg REST catalog containers for testing.
  */
 @Tag("integration")
 @DisplayName("IcebergRestCatalogClient Integration Tests")
 class IcebergRestCatalogClientIT {
 
-    private static final Logger LOG = LoggerFactory.getLogger(IcebergRestCatalogClientIT.class);
+    private static final Logger LOG = LoggerFactory.getLogger(
+        IcebergRestCatalogClientIT.class
+    );
 
-    private static final String MINIO_ACCESS_KEY = "admin";
-    private static final String MINIO_SECRET_KEY = "password";
-    private static final String MINIO_BUCKET = "warehouse";
+    private static final String S3_ACCESS_KEY = "admin";
+    private static final String S3_SECRET_KEY = "password";
+    private static final String S3_BUCKET = "warehouse";
     private static final String CATALOG_NAME = "demo";
 
     private static Network network;
-    private static GenericContainer<?> minio;
+    private static GenericContainer<?> seaweedfs;
     private static GenericContainer<?> restCatalog;
     private static String catalogUri;
     private static String s3Endpoint;
@@ -48,43 +66,64 @@ class IcebergRestCatalogClientIT {
         try {
             network = Network.newNetwork();
 
-            minio =
-                    new GenericContainer<>(DockerImageName.parse("minio/minio:latest"))
-                            .withNetwork(network)
-                            .withNetworkAliases("minio")
-                            .withExposedPorts(9000)
-                            .withEnv("MINIO_ROOT_USER", MINIO_ACCESS_KEY)
-                            .withEnv("MINIO_ROOT_PASSWORD", MINIO_SECRET_KEY)
-                            .withCommand("server", "/data")
-                            .waitingFor(Wait.forHttp("/minio/health/ready").forPort(9000))
-                            .withLogConsumer(new Slf4jLogConsumer(LOG).withPrefix("minio"));
+            seaweedfs = new GenericContainer<>(
+                DockerImageName.parse("chrislusf/seaweedfs:latest")
+            )
+                .withNetwork(network)
+                .withNetworkAliases("seaweedfs")
+                .withExposedPorts(8333, 9333)
+                .withEnv("AWS_ACCESS_KEY_ID", S3_ACCESS_KEY)
+                .withEnv("AWS_SECRET_ACCESS_KEY", S3_SECRET_KEY)
+                .withCommand(
+                    "server",
+                    "-dir=/data",
+                    "-s3",
+                    "-s3.port=8333",
+                    "-s3.allowEmptyFolder"
+                )
+                .waitingFor(Wait.forHttp("/cluster/status").forPort(9333))
+                .withLogConsumer(
+                    new Slf4jLogConsumer(LOG).withPrefix("seaweedfs")
+                );
 
-            minio.start();
+            seaweedfs.start();
 
             // Create bucket
-            createMinioBucket();
+            createS3Bucket();
 
-            restCatalog =
-                    new GenericContainer<>(DockerImageName.parse("apache/iceberg-rest-fixture"))
-                            .withNetwork(network)
-                            .withNetworkAliases("rest-catalog")
-                            .withExposedPorts(8181)
-                            .withEnv("CATALOG_WAREHOUSE", "s3://" + MINIO_BUCKET + "/")
-                            .withEnv("CATALOG_IO__IMPL", "org.apache.iceberg.aws.s3.S3FileIO")
-                            .withEnv("CATALOG_S3_ENDPOINT", "http://minio:9000")
-                            .withEnv("CATALOG_S3_ACCESS__KEY__ID", MINIO_ACCESS_KEY)
-                            .withEnv("CATALOG_S3_SECRET__ACCESS__KEY", MINIO_SECRET_KEY)
-                            .withEnv("CATALOG_S3_PATH__STYLE__ACCESS", "true")
-                            .withEnv("AWS_REGION", "us-east-1")
-                            .waitingFor(Wait.forHttp("/v1/config").forPort(8181))
-                            .withLogConsumer(new Slf4jLogConsumer(LOG).withPrefix("rest-catalog"));
+            restCatalog = new GenericContainer<>(
+                DockerImageName.parse("apache/iceberg-rest-fixture")
+            )
+                .withNetwork(network)
+                .withNetworkAliases("rest-catalog")
+                .withExposedPorts(8181)
+                .withEnv("CATALOG_WAREHOUSE", "s3://" + S3_BUCKET + "/")
+                .withEnv(
+                    "CATALOG_IO__IMPL",
+                    "org.apache.iceberg.aws.s3.S3FileIO"
+                )
+                .withEnv("CATALOG_S3_ENDPOINT", "http://seaweedfs:8333")
+                .withEnv("CATALOG_S3_ACCESS__KEY__ID", S3_ACCESS_KEY)
+                .withEnv("CATALOG_S3_SECRET__ACCESS__KEY", S3_SECRET_KEY)
+                .withEnv("CATALOG_S3_PATH__STYLE__ACCESS", "true")
+                .withEnv("AWS_REGION", "us-east-1")
+                .waitingFor(Wait.forHttp("/v1/config").forPort(8181))
+                .withLogConsumer(
+                    new Slf4jLogConsumer(LOG).withPrefix("rest-catalog")
+                );
 
             restCatalog.start();
 
-            catalogUri =
-                    String.format(
-                            "http://%s:%d", restCatalog.getHost(), restCatalog.getMappedPort(8181));
-            s3Endpoint = String.format("http://%s:%d", minio.getHost(), minio.getMappedPort(9000));
+            catalogUri = String.format(
+                "http://%s:%d",
+                restCatalog.getHost(),
+                restCatalog.getMappedPort(8181)
+            );
+            s3Endpoint = String.format(
+                "http://%s:%d",
+                seaweedfs.getHost(),
+                seaweedfs.getMappedPort(8333)
+            );
 
             LOG.info("REST Catalog URI: {}", catalogUri);
             LOG.info("S3 Endpoint: {}", s3Endpoint);
@@ -105,21 +144,31 @@ class IcebergRestCatalogClientIT {
         }
     }
 
-    private static void createMinioBucket() throws Exception {
-        try (var mcContainer =
-                new GenericContainer<>(DockerImageName.parse("minio/mc:latest"))
-                        .withNetwork(network)
-                        .withCommand(
-                                "sh",
-                                "-c",
-                                String.format(
-                                        "mc alias set myminio http://minio:9000 %s %s && mc mb"
-                                                + " --ignore-existing myminio/%s",
-                                        MINIO_ACCESS_KEY, MINIO_SECRET_KEY, MINIO_BUCKET))) {
-            mcContainer.start();
+    private static void createS3Bucket() throws Exception {
+        try (
+            var s3ClientContainer = new GenericContainer<>(
+                DockerImageName.parse("amazon/aws-cli:latest")
+            )
+                .withNetwork(network)
+                .withCommand(
+                    "sh",
+                    "-c",
+                    String.format(
+                        "export AWS_ACCESS_KEY_ID=%s; " +
+                            "export AWS_SECRET_ACCESS_KEY=%s; " +
+                            "export AWS_DEFAULT_REGION=us-east-1; " +
+                            "until aws --endpoint-url http://seaweedfs:8333 s3 ls >/dev/null 2>&1; do sleep 1; done; " +
+                            "aws --endpoint-url http://seaweedfs:8333 s3 mb s3://%s || true",
+                        S3_ACCESS_KEY,
+                        S3_SECRET_KEY,
+                        S3_BUCKET
+                    )
+                )
+        ) {
+            s3ClientContainer.start();
             Thread.sleep(2000);
         }
-        LOG.info("MinIO bucket '{}' created", MINIO_BUCKET);
+        LOG.info("S3 bucket '{}' created", S3_BUCKET);
     }
 
     @AfterAll
@@ -127,8 +176,8 @@ class IcebergRestCatalogClientIT {
         if (restCatalog != null) {
             restCatalog.stop();
         }
-        if (minio != null) {
-            minio.stop();
+        if (seaweedfs != null) {
+            seaweedfs.stop();
         }
         if (network != null) {
             network.close();
@@ -173,7 +222,11 @@ class IcebergRestCatalogClientIT {
         assumeTrue(containersStarted, "Containers not started");
 
         IcebergRestCatalogClient client = createClient();
-        var tableId = new TableIdentifier(CATALOG_NAME, "test_ns", "nonexistent_table");
+        var tableId = new TableIdentifier(
+            CATALOG_NAME,
+            "test_ns",
+            "nonexistent_table"
+        );
         var metadataOpt = client.getTableMetadata(tableId);
         assertThat(metadataOpt).isEmpty();
         client.close();
@@ -191,67 +244,77 @@ class IcebergRestCatalogClientIT {
 
     private IcebergRestCatalogClient createClient() {
         return IcebergRestCatalogClient.builder()
-                .catalogName(CATALOG_NAME)
-                .uri(catalogUri)
-                .warehouse("s3://" + MINIO_BUCKET + "/")
-                .additionalProperties(
-                        Map.of(
-                                "io-impl",
-                                "org.apache.iceberg.aws.s3.S3FileIO",
-                                "s3.endpoint",
-                                s3Endpoint,
-                                "s3.access-key-id",
-                                MINIO_ACCESS_KEY,
-                                "s3.secret-access-key",
-                                MINIO_SECRET_KEY,
-                                "s3.path-style-access",
-                                "true"))
-                .build();
+            .catalogName(CATALOG_NAME)
+            .uri(catalogUri)
+            .warehouse("s3://" + S3_BUCKET + "/")
+            .additionalProperties(
+                Map.of(
+                    "io-impl",
+                    "org.apache.iceberg.aws.s3.S3FileIO",
+                    "s3.endpoint",
+                    s3Endpoint,
+                    "s3.access-key-id",
+                    S3_ACCESS_KEY,
+                    "s3.secret-access-key",
+                    S3_SECRET_KEY,
+                    "s3.path-style-access",
+                    "true"
+                )
+            )
+            .build();
     }
 
     private static final String TEST_BEARER_TOKEN = "test-token-for-rest";
 
     private IcebergRestCatalogClient createClientWithBearerToken() {
         return IcebergRestCatalogClient.builder()
-                .catalogName(CATALOG_NAME)
-                .uri(catalogUri)
-                .warehouse("s3://" + MINIO_BUCKET + "/")
-                .token(TEST_BEARER_TOKEN)
-                .additionalProperties(
-                        Map.of(
-                                "io-impl",
-                                "org.apache.iceberg.aws.s3.S3FileIO",
-                                "s3.endpoint",
-                                s3Endpoint,
-                                "s3.access-key-id",
-                                MINIO_ACCESS_KEY,
-                                "s3.secret-access-key",
-                                MINIO_SECRET_KEY,
-                                "s3.path-style-access",
-                                "true"))
-                .build();
+            .catalogName(CATALOG_NAME)
+            .uri(catalogUri)
+            .warehouse("s3://" + S3_BUCKET + "/")
+            .token(TEST_BEARER_TOKEN)
+            .additionalProperties(
+                Map.of(
+                    "io-impl",
+                    "org.apache.iceberg.aws.s3.S3FileIO",
+                    "s3.endpoint",
+                    s3Endpoint,
+                    "s3.access-key-id",
+                    S3_ACCESS_KEY,
+                    "s3.secret-access-key",
+                    S3_SECRET_KEY,
+                    "s3.path-style-access",
+                    "true"
+                )
+            )
+            .build();
     }
 
     private IcebergRestCatalogClient createClientWithOAuth2() {
         return IcebergRestCatalogClient.builder()
-                .catalogName(CATALOG_NAME)
-                .uri(catalogUri)
-                .warehouse("s3://" + MINIO_BUCKET + "/")
-                .oauth2("test-client-id", "test-client-secret", catalogUri + "/v1/oauth/tokens")
-                .scope("catalog")
-                .additionalProperties(
-                        Map.of(
-                                "io-impl",
-                                "org.apache.iceberg.aws.s3.S3FileIO",
-                                "s3.endpoint",
-                                s3Endpoint,
-                                "s3.access-key-id",
-                                MINIO_ACCESS_KEY,
-                                "s3.secret-access-key",
-                                MINIO_SECRET_KEY,
-                                "s3.path-style-access",
-                                "true"))
-                .build();
+            .catalogName(CATALOG_NAME)
+            .uri(catalogUri)
+            .warehouse("s3://" + S3_BUCKET + "/")
+            .oauth2(
+                "test-client-id",
+                "test-client-secret",
+                catalogUri + "/v1/oauth/tokens"
+            )
+            .scope("catalog")
+            .additionalProperties(
+                Map.of(
+                    "io-impl",
+                    "org.apache.iceberg.aws.s3.S3FileIO",
+                    "s3.endpoint",
+                    s3Endpoint,
+                    "s3.access-key-id",
+                    S3_ACCESS_KEY,
+                    "s3.secret-access-key",
+                    S3_SECRET_KEY,
+                    "s3.path-style-access",
+                    "true"
+                )
+            )
+            .build();
     }
 
     @Test
@@ -261,7 +324,9 @@ class IcebergRestCatalogClientIT {
 
         IcebergRestCatalogClient client = createClient();
         assertThat(client.getAuthConfig()).isNotNull();
-        assertThat(client.getAuthConfig().authType()).isEqualTo(CatalogAuthConfig.AuthType.NONE);
+        assertThat(client.getAuthConfig().authType()).isEqualTo(
+            CatalogAuthConfig.AuthType.NONE
+        );
         assertThat(client.getUri()).isEqualTo(catalogUri);
         client.close();
     }
@@ -273,10 +338,14 @@ class IcebergRestCatalogClientIT {
 
         IcebergRestCatalogClient client = createClientWithBearerToken();
         assertThat(client.getAuthConfig()).isNotNull();
-        assertThat(client.getAuthConfig().authType()).isEqualTo(CatalogAuthConfig.AuthType.BEARER);
-        assertThat(client.getAuthConfig()).isInstanceOf(CatalogAuthConfig.BearerToken.class);
+        assertThat(client.getAuthConfig().authType()).isEqualTo(
+            CatalogAuthConfig.AuthType.BEARER
+        );
+        assertThat(client.getAuthConfig()).isInstanceOf(
+            CatalogAuthConfig.BearerToken.class
+        );
         CatalogAuthConfig.BearerToken bearerConfig =
-                (CatalogAuthConfig.BearerToken) client.getAuthConfig();
+            (CatalogAuthConfig.BearerToken) client.getAuthConfig();
         assertThat(bearerConfig.token()).isEqualTo(TEST_BEARER_TOKEN);
         client.close();
     }
@@ -288,11 +357,14 @@ class IcebergRestCatalogClientIT {
 
         IcebergRestCatalogClient client = createClientWithOAuth2();
         assertThat(client.getAuthConfig()).isNotNull();
-        assertThat(client.getAuthConfig().authType()).isEqualTo(CatalogAuthConfig.AuthType.OAUTH2);
-        assertThat(client.getAuthConfig())
-                .isInstanceOf(CatalogAuthConfig.OAuth2ClientCredentials.class);
+        assertThat(client.getAuthConfig().authType()).isEqualTo(
+            CatalogAuthConfig.AuthType.OAUTH2
+        );
+        assertThat(client.getAuthConfig()).isInstanceOf(
+            CatalogAuthConfig.OAuth2ClientCredentials.class
+        );
         CatalogAuthConfig.OAuth2ClientCredentials oauth2Config =
-                (CatalogAuthConfig.OAuth2ClientCredentials) client.getAuthConfig();
+            (CatalogAuthConfig.OAuth2ClientCredentials) client.getAuthConfig();
         assertThat(oauth2Config.clientId()).isEqualTo("test-client-id");
         assertThat(oauth2Config.clientSecret()).isEqualTo("test-client-secret");
         assertThat(oauth2Config.tokenEndpoint()).isPresent();

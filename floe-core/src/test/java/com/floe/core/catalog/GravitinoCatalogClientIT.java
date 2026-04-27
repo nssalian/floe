@@ -1,3 +1,19 @@
+/*
+ * Copyright 2026 The Floe Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.floe.core.catalog;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -18,7 +34,7 @@ import org.testcontainers.utility.DockerImageName;
 /**
  * Integration test for Apache Gravitino Iceberg REST Server using Testcontainers.
  *
- * <p>Spins up MinIO, PostgreSQL, and Gravitino Iceberg REST containers for testing. Gravitino
+ * <p>Spins up SeaweedFS, PostgreSQL, and Gravitino Iceberg REST containers for testing. Gravitino
  * Iceberg REST Server implements the Iceberg REST Catalog specification, so we use
  * IcebergRestCatalogClient to connect.
  */
@@ -26,38 +42,49 @@ import org.testcontainers.utility.DockerImageName;
 @DisplayName("Gravitino Iceberg REST Catalog Integration Tests")
 class GravitinoCatalogClientIT {
 
-    private static final Logger LOG = LoggerFactory.getLogger(GravitinoCatalogClientIT.class);
+    private static final Logger LOG = LoggerFactory.getLogger(
+        GravitinoCatalogClientIT.class
+    );
 
-    private static final String MINIO_ACCESS_KEY = "admin";
-    private static final String MINIO_SECRET_KEY = "password";
-    private static final String MINIO_BUCKET = "warehouse";
+    private static final String S3_ACCESS_KEY = "admin";
+    private static final String S3_SECRET_KEY = "password";
+    private static final String S3_BUCKET = "warehouse";
     private static final String CATALOG_NAME = "demo";
-    private static final String DEFAULT_LOCAL_URI = "http://localhost:9001/iceberg/";
-    private static final String DEFAULT_LOCAL_S3_ENDPOINT = "http://localhost:19000";
+    private static final String DEFAULT_LOCAL_URI =
+        "http://localhost:9001/iceberg/";
+    private static final String DEFAULT_LOCAL_S3_ENDPOINT =
+        "http://localhost:18333";
 
     private static Network network;
-    private static GenericContainer<?> minio;
+    private static GenericContainer<?> seaweedfs;
     private static PostgreSQLContainer<?> postgres;
     private static GenericContainer<?> gravitino;
     private static String catalogUri;
     private static String s3Endpoint;
     private static boolean containersStarted = false;
     private static boolean usingLocalStack = false;
-    private static String s3AccessKey = MINIO_ACCESS_KEY;
-    private static String s3SecretKey = MINIO_SECRET_KEY;
+    private static String s3AccessKey = S3_ACCESS_KEY;
+    private static String s3SecretKey = S3_SECRET_KEY;
 
     @BeforeAll
     static void setUp() {
         if (useLocalStack()) {
-            catalogUri = System.getenv().getOrDefault("FLOE_IT_GRAVITINO_URI", DEFAULT_LOCAL_URI);
-            s3Endpoint =
-                    System.getenv()
-                            .getOrDefault(
-                                    "FLOE_IT_GRAVITINO_S3_ENDPOINT", DEFAULT_LOCAL_S3_ENDPOINT);
-            s3AccessKey =
-                    System.getenv().getOrDefault("FLOE_IT_GRAVITINO_ACCESS_KEY", MINIO_ACCESS_KEY);
-            s3SecretKey =
-                    System.getenv().getOrDefault("FLOE_IT_GRAVITINO_SECRET_KEY", MINIO_SECRET_KEY);
+            catalogUri = System.getenv().getOrDefault(
+                "FLOE_IT_GRAVITINO_URI",
+                DEFAULT_LOCAL_URI
+            );
+            s3Endpoint = System.getenv().getOrDefault(
+                "FLOE_IT_GRAVITINO_S3_ENDPOINT",
+                DEFAULT_LOCAL_S3_ENDPOINT
+            );
+            s3AccessKey = System.getenv().getOrDefault(
+                "FLOE_IT_GRAVITINO_ACCESS_KEY",
+                S3_ACCESS_KEY
+            );
+            s3SecretKey = System.getenv().getOrDefault(
+                "FLOE_IT_GRAVITINO_SECRET_KEY",
+                S3_SECRET_KEY
+            );
             usingLocalStack = true;
             containersStarted = true;
             LOG.info("Using local Gravitino stack at {}", catalogUri);
@@ -72,62 +99,87 @@ class GravitinoCatalogClientIT {
         try {
             network = Network.newNetwork();
 
-            // Start MinIO
-            minio =
-                    new GenericContainer<>(DockerImageName.parse("minio/minio:latest"))
-                            .withNetwork(network)
-                            .withNetworkAliases("minio")
-                            .withExposedPorts(9000)
-                            .withEnv("MINIO_ROOT_USER", MINIO_ACCESS_KEY)
-                            .withEnv("MINIO_ROOT_PASSWORD", MINIO_SECRET_KEY)
-                            .withCommand("server", "/data")
-                            .waitingFor(Wait.forHttp("/minio/health/ready").forPort(9000))
-                            .withLogConsumer(new Slf4jLogConsumer(LOG).withPrefix("minio"));
+            // Start SeaweedFS
+            seaweedfs = new GenericContainer<>(
+                DockerImageName.parse("chrislusf/seaweedfs:latest")
+            )
+                .withNetwork(network)
+                .withNetworkAliases("seaweedfs")
+                .withExposedPorts(8333, 9333)
+                .withEnv("AWS_ACCESS_KEY_ID", S3_ACCESS_KEY)
+                .withEnv("AWS_SECRET_ACCESS_KEY", S3_SECRET_KEY)
+                .withCommand(
+                    "server",
+                    "-dir=/data",
+                    "-s3",
+                    "-s3.port=8333",
+                    "-s3.allowEmptyFolder"
+                )
+                .waitingFor(Wait.forHttp("/cluster/status").forPort(9333))
+                .withLogConsumer(
+                    new Slf4jLogConsumer(LOG).withPrefix("seaweedfs")
+                );
 
-            minio.start();
-            createMinioBucket();
+            seaweedfs.start();
+            createS3Bucket();
 
             // Start PostgreSQL for Gravitino JDBC backend
-            postgres =
-                    new PostgreSQLContainer<>(DockerImageName.parse("postgres:15-alpine"))
-                            .withNetwork(network)
-                            .withNetworkAliases("postgres")
-                            .withDatabaseName("gravitino")
-                            .withUsername("gravitino")
-                            .withPassword("gravitino")
-                            .withLogConsumer(new Slf4jLogConsumer(LOG).withPrefix("postgres"));
+            postgres = new PostgreSQLContainer<>(
+                DockerImageName.parse("postgres:15-alpine")
+            )
+                .withNetwork(network)
+                .withNetworkAliases("postgres")
+                .withDatabaseName("gravitino")
+                .withUsername("gravitino")
+                .withPassword("gravitino")
+                .withLogConsumer(
+                    new Slf4jLogConsumer(LOG).withPrefix("postgres")
+                );
 
             postgres.start();
 
             // Start Gravitino Iceberg REST Server
-            gravitino =
-                    new GenericContainer<>(
-                                    DockerImageName.parse("apache/gravitino-iceberg-rest:1.0.1"))
-                            .withNetwork(network)
-                            .withNetworkAliases("gravitino")
-                            .withExposedPorts(9001)
-                            .withEnv("GRAVITINO_CATALOG_BACKEND", "jdbc")
-                            .withEnv("GRAVITINO_JDBC_DRIVER", "org.postgresql.Driver")
-                            .withEnv("GRAVITINO_URI", "jdbc:postgresql://postgres:5432/gravitino")
-                            .withEnv("GRAVITINO_JDBC_USER", "gravitino")
-                            .withEnv("GRAVITINO_JDBC_PASSWORD", "gravitino")
-                            .withEnv("GRAVITINO_WAREHOUSE", "s3://warehouse/")
-                            .withEnv("GRAVITINO_IO_IMPL", "org.apache.iceberg.aws.s3.S3FileIO")
-                            .withEnv("GRAVITINO_S3_ENDPOINT", "http://minio:9000")
-                            .withEnv("GRAVITINO_S3_REGION", "us-east-1")
-                            .withEnv("GRAVITINO_S3_ACCESS_KEY", MINIO_ACCESS_KEY)
-                            .withEnv("GRAVITINO_S3_SECRET_KEY", MINIO_SECRET_KEY)
-                            .withEnv("GRAVITINO_S3_PATH_STYLE_ACCESS", "true")
-                            .waitingFor(Wait.forHttp("/iceberg/v1/config").forPort(9001))
-                            .withLogConsumer(new Slf4jLogConsumer(LOG).withPrefix("gravitino"));
+            gravitino = new GenericContainer<>(
+                DockerImageName.parse("apache/gravitino-iceberg-rest:1.0.1")
+            )
+                .withNetwork(network)
+                .withNetworkAliases("gravitino")
+                .withExposedPorts(9001)
+                .withEnv("GRAVITINO_CATALOG_BACKEND", "jdbc")
+                .withEnv("GRAVITINO_JDBC_DRIVER", "org.postgresql.Driver")
+                .withEnv(
+                    "GRAVITINO_URI",
+                    "jdbc:postgresql://postgres:5432/gravitino"
+                )
+                .withEnv("GRAVITINO_JDBC_USER", "gravitino")
+                .withEnv("GRAVITINO_JDBC_PASSWORD", "gravitino")
+                .withEnv("GRAVITINO_WAREHOUSE", "s3://warehouse/")
+                .withEnv(
+                    "GRAVITINO_IO_IMPL",
+                    "org.apache.iceberg.aws.s3.S3FileIO"
+                )
+                .withEnv("GRAVITINO_S3_ENDPOINT", "http://seaweedfs:8333")
+                .withEnv("GRAVITINO_S3_REGION", "us-east-1")
+                .withEnv("GRAVITINO_S3_ACCESS_KEY", S3_ACCESS_KEY)
+                .withEnv("GRAVITINO_S3_SECRET_KEY", S3_SECRET_KEY)
+                .withEnv("GRAVITINO_S3_PATH_STYLE_ACCESS", "true")
+                .waitingFor(Wait.forHttp("/iceberg/v1/config").forPort(9001))
+                .withLogConsumer(
+                    new Slf4jLogConsumer(LOG).withPrefix("gravitino")
+                );
 
             gravitino.start();
 
-            catalogUri =
-                    String.format(
-                            "http://%s:%d/iceberg/",
-                            gravitino.getHost(), gravitino.getMappedPort(9001));
-            s3Endpoint = String.format("http://%s:%d", minio.getHost(), minio.getMappedPort(9000));
+            catalogUri = String.format(
+                "http://%s:%d/iceberg/",
+                gravitino.getHost(),
+                gravitino.getMappedPort(9001)
+            );
+            s3Endpoint = String.format(
+                "http://%s:%d",
+                seaweedfs.getHost(),
+                seaweedfs.getMappedPort(8333)
+            );
 
             LOG.info("Gravitino Catalog URI: {}", catalogUri);
             LOG.info("S3 Endpoint: {}", s3Endpoint);
@@ -148,21 +200,31 @@ class GravitinoCatalogClientIT {
         }
     }
 
-    private static void createMinioBucket() throws Exception {
-        try (var mcContainer =
-                new GenericContainer<>(DockerImageName.parse("minio/mc:latest"))
-                        .withNetwork(network)
-                        .withCommand(
-                                "sh",
-                                "-c",
-                                String.format(
-                                        "mc alias set myminio http://minio:9000 %s %s && mc mb"
-                                                + " --ignore-existing myminio/%s",
-                                        MINIO_ACCESS_KEY, MINIO_SECRET_KEY, MINIO_BUCKET))) {
-            mcContainer.start();
+    private static void createS3Bucket() throws Exception {
+        try (
+            var s3ClientContainer = new GenericContainer<>(
+                DockerImageName.parse("amazon/aws-cli:latest")
+            )
+                .withNetwork(network)
+                .withCommand(
+                    "sh",
+                    "-c",
+                    String.format(
+                        "export AWS_ACCESS_KEY_ID=%s; " +
+                            "export AWS_SECRET_ACCESS_KEY=%s; " +
+                            "export AWS_DEFAULT_REGION=us-east-1; " +
+                            "until aws --endpoint-url http://seaweedfs:8333 s3 ls >/dev/null 2>&1; do sleep 1; done; " +
+                            "aws --endpoint-url http://seaweedfs:8333 s3 mb s3://%s || true",
+                        S3_ACCESS_KEY,
+                        S3_SECRET_KEY,
+                        S3_BUCKET
+                    )
+                )
+        ) {
+            s3ClientContainer.start();
             Thread.sleep(2000);
         }
-        LOG.info("MinIO bucket '{}' created", MINIO_BUCKET);
+        LOG.info("S3 bucket '{}' created", S3_BUCKET);
     }
 
     @AfterAll
@@ -176,8 +238,8 @@ class GravitinoCatalogClientIT {
         if (postgres != null) {
             postgres.stop();
         }
-        if (minio != null) {
-            minio.stop();
+        if (seaweedfs != null) {
+            seaweedfs.stop();
         }
         if (network != null) {
             network.close();
@@ -222,7 +284,11 @@ class GravitinoCatalogClientIT {
         assumeTrue(containersStarted, "Containers not started");
 
         IcebergRestCatalogClient client = createClient();
-        var tableId = new TableIdentifier(CATALOG_NAME, "test_ns", "nonexistent_table");
+        var tableId = new TableIdentifier(
+            CATALOG_NAME,
+            "test_ns",
+            "nonexistent_table"
+        );
         var metadataOpt = client.getTableMetadata(tableId);
         assertThat(metadataOpt).isEmpty();
         client.close();
@@ -245,34 +311,40 @@ class GravitinoCatalogClientIT {
 
         IcebergRestCatalogClient client = createClient();
         assertThat(client.getAuthConfig()).isNotNull();
-        assertThat(client.getAuthConfig().authType()).isEqualTo(CatalogAuthConfig.AuthType.NONE);
+        assertThat(client.getAuthConfig().authType()).isEqualTo(
+            CatalogAuthConfig.AuthType.NONE
+        );
         client.close();
     }
 
     private IcebergRestCatalogClient createClient() {
         return IcebergRestCatalogClient.builder()
-                .catalogName(CATALOG_NAME)
-                .uri(catalogUri)
-                .warehouse("s3://" + MINIO_BUCKET + "/")
-                .additionalProperties(
-                        Map.of(
-                                "io-impl",
-                                "org.apache.iceberg.aws.s3.S3FileIO",
-                                "s3.endpoint",
-                                s3Endpoint,
-                                "s3.access-key-id",
-                                s3AccessKey,
-                                "s3.secret-access-key",
-                                s3SecretKey,
-                                "s3.path-style-access",
-                                "true"))
-                .build();
+            .catalogName(CATALOG_NAME)
+            .uri(catalogUri)
+            .warehouse("s3://" + S3_BUCKET + "/")
+            .additionalProperties(
+                Map.of(
+                    "io-impl",
+                    "org.apache.iceberg.aws.s3.S3FileIO",
+                    "s3.endpoint",
+                    s3Endpoint,
+                    "s3.access-key-id",
+                    s3AccessKey,
+                    "s3.secret-access-key",
+                    s3SecretKey,
+                    "s3.path-style-access",
+                    "true"
+                )
+            )
+            .build();
     }
 
     private static boolean useLocalStack() {
         String useLocal = System.getenv("FLOE_IT_USE_LOCAL_STACK");
         String uri = System.getenv("FLOE_IT_GRAVITINO_URI");
-        return (Boolean.parseBoolean(useLocal != null ? useLocal : "false")
-                || (uri != null && !uri.isBlank()));
+        return (
+            Boolean.parseBoolean(useLocal != null ? useLocal : "false") ||
+            (uri != null && !uri.isBlank())
+        );
     }
 }

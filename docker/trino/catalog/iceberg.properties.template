@@ -16,7 +16,7 @@ iceberg.nessie-catalog.default-warehouse-dir=${CATALOG_WAREHOUSE}
 # Hive Metastore settings (used when CATALOG_TYPE=hive_metastore)
 hive.metastore.uri=${HMS_URI}
 
-# S3/MinIO storage settings
+# S3 storage settings
 fs.native-s3.enabled=true
 s3.endpoint=${S3_ENDPOINT}
 s3.path-style-access=${S3_PATH_STYLE}

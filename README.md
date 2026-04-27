@@ -5,6 +5,8 @@ Floe is a policy-based table maintenance system for Apache Iceberg. *(A floe is 
 [![CI](https://github.com/nssalian/floe/actions/workflows/ci.yml/badge.svg)](https://github.com/nssalian/floe/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
+> **Note:** This project is no longer actively maintained. It was built as a reference/learning project for testing concepts and ideas around Iceberg ecosystem tooling, and is not intended for long-term support. If you'd like to build on it, please fork the repository.
+
 Floe automates compaction, snapshot expiration, orphan cleanup, and manifest optimization through declarative policies. 
 It orchestrates maintenance using Iceberg's built-in procedures via Spark or Trino.
 

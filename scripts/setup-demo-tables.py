@@ -6,6 +6,44 @@ Configures Spark based on CATALOG_TYPE environment variable.
 Supported catalog types: rest, nessie, polaris, hive, lakekeeper, gravitino
 """
 
+#  Copyright 2026 The Floe Authors
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+
 from pyspark.sql import SparkSession
 from datetime import datetime, timedelta
 import random
@@ -16,7 +54,7 @@ CATALOG_TYPE = os.environ.get("CATALOG_TYPE", "rest").lower()
 CATALOG_NAME = os.environ.get("CATALOG_NAME", "demo")
 CATALOG_URI = os.environ.get("CATALOG_URI", "http://rest:8181")
 CATALOG_WAREHOUSE = os.environ.get("CATALOG_WAREHOUSE", "s3://warehouse/")
-S3_ENDPOINT = os.environ.get("S3_ENDPOINT", "http://minio:9000")
+S3_ENDPOINT = os.environ.get("S3_ENDPOINT", "http://seaweedfs:8333")
 S3_ACCESS_KEY = os.environ.get("AWS_ACCESS_KEY_ID", "admin")
 S3_SECRET_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY", "password")
 # Modify this value as needed to increase the number of rows / files
